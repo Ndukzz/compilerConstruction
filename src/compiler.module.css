@@ -1,0 +1,162 @@
+/* Main layout */
+.container {
+    min-height: 100vh;
+    width: 100%;
+    background-color: #1E1E1E;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    overflow-x: hidden; /* Prevent horizontal overflow */
+}
+
+/* Add this to ensure no margin or padding on body and html */
+html, body {
+    margin: 0; /* Remove default margin */
+    padding: 0; /* Remove default padding */
+    overflow-x: hidden; /* Prevent horizontal overflow */
+}
+
+.title {
+    font-size: 3rem;
+    font-weight: bold;
+    margin-bottom: 3rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* File input section */
+.fileInput {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.fileInputLabel {
+    background-color: #3A3A3A;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.fileInputLabel:hover {
+    background-color: #4A4A4A;
+}
+
+.fileName {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.hiddenInput {
+    display: none;
+}
+
+/* Results container */
+.resultsContainer {
+    width: 100%;
+    max-width: 64rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Analysis panel */
+.panel {
+    margin: 30px;
+    background-color: #2D2D2D;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.panelHeader {
+    background-color: #1F1F1F;
+    padding: 0.75rem 1rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    border-bottom: 1px solid #3D3D3D;
+}
+
+.panelContent {
+    padding: 1.5rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #D4D4D4;
+}
+
+.scrollableContent {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Table styles */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tableHeader {
+    text-align: left;
+    border-bottom: 1px solid #3D3D3D;
+}
+
+.tableHeader th {
+    padding: 0.5rem 1rem 0.5rem 0;
+}
+
+.tableRow {
+    border-bottom: 1px solid rgba(61, 61, 61, 0.3);
+}
+
+.tableRow td {
+    padding: 0.25rem 1rem 0.25rem 0;
+}
+
+.tokenCell {
+    color: #569CD6;
+}
+
+.attributeCell {
+    color: #CE9178;
+}
+
+.emptyMessage {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Syntax analysis results */
+.syntaxResult {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+}
+
+.successMessage {
+    color: #4ADE80;
+}
+
+.errorMessage {
+    color: #F87171;
+}
+
+.errorList {
+    margin-top: 1rem;
+}
+
+.errorList h3 {
+    color: #F87171;
+    margin-bottom: 0.5rem;
+}
+
+.errorList ul {
+    list-style-type: disc;
+    list-style-position: inside;
+    color: #FCA5A5;
+}
+
+.errorList li {
+    margin-top: 0.25rem;
+}

@@ -1,80 +1,34 @@
-const RESWORDSANDSYM = {
-  BEGIN: "beginT",
-  MODULE: "moduleT",
-  CONSTANT: "constT",
-  PROCEDURE: "procedureT",
-  IS: "isT",
-  IF: "ifT",
-  THEN: "thenT",
-  ELSE: "elseT",
-  ELSIF: "elseifT",
-  WHILE: "whileT",
-  LOOP: "loopT",
-  FLOAT: "floatT",
-  INTEGER: "integer",
-  CHAR: "charT",
-  GET: "getT",
-  PUT: "putT",
-  END: "endT",
-  "--": "openCommentT",
-  // "*)": "closeCommentT",
-  ":=": "assignOp",
-  "+": "addOp",
-  "-": "addOp",
-  REM: "mulOp",
-  MOD: "mulOp",
-  AND: "mulOp",
-  "*": "mulOp",
-  "/": "mulOp",
-  "=": "relOp",
-  "<": "relOp",
-  ">": "relOp",
-  "<=": "relOp",
-  ">=": "relOp",
-  "#": "relOp",
-  "^": "caretT",
-  "/=": "relOp",
-  "&": "MulOp",
-  ".": "periodT",
-  ",": "commaT",
-  ";": "semicolonT",
-  ":": "colonT",
-  "(": "LparenT",
-  ")": "RparenT",
-  '"': "doubleQuotesT",
-  "{": "LcurlybraceT",
-  "}": "RtcurlybraceT",
-};
+import { RESWORDSANDSYM } from './constants';
 
 class LexicalAnalyzer {
-  constructor(props) {
-    this.input = [...props];
+  constructor({ input }) {
+    this.input = [...input];
     this.scanIndex = 0;
-    (this.ch = this.input[this.scanIndex]),
-      (this.chSpy = this.input[this.scanIndex + 1]);
-    (this.currLexeme = ""), (this.ResultsTable = []);
+    this.ch = this.input[this.scanIndex];
     this.lineNum = 1;
   }
 
-  lexemeCheck(lexeme) {
+  lexemeCheck(lexeme, lineNumber) {
     let data = {
       lexeme: lexeme,
       token: undefined,
       attribute: undefined,
+      line: lineNumber
     };
+
     if (Object.keys(RESWORDSANDSYM).includes(lexeme)) {
-      let token = RESWORDSANDSYM[lexeme];
+      const token = RESWORDSANDSYM[lexeme];
       data = {
         lexeme: lexeme,
         token,
         attribute: undefined,
+        line: lineNumber
       };
       return data;
     }
-    if (/^[a-zA-Z][a-zA-Z0-9_]*$/.test(lexeme)) {
-      // checks for idt strings
-      if (lexeme.length > 17) {
 
+    if (/^[a-zA-Z][a-zA-Z0-9_]*$/.test(lexeme)) {
+      if (lexeme.length > 17) {
         data = {
           ...data,
           lexeme: lexeme.slice(0, 17),
@@ -84,21 +38,17 @@ class LexicalAnalyzer {
         data = {
           lexeme,
           attribute: lexeme,
+          line: lineNumber
         };
       }
       data.token = "idT";
     } else if (/^[0-9_]+(\.[0-9_]+)?$/.test(lexeme)) {
-      // checks for numbers
-      // console.log("Number: ", lexeme);
-      if (lexeme.toString().includes(".")) {
-        data.token = "valueR";
-      } else {
-        data.token = "value";
-      }
+      data.token = lexeme.includes(".") ? "valueR" : "value";
       data = {
         ...data,
-        attribute: lexeme, //add a rounding logic to this
+        attribute: lexeme,
         lexeme: lexeme,
+        line: lineNumber
       };
     }
     return data;
@@ -106,165 +56,173 @@ class LexicalAnalyzer {
 
   checkIdT(lexeme) {
     const regex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
-    let isIdT = regex.test(lexeme);
-    return isIdT;
+    return regex.test(lexeme);
+  }
+
+  lookAhead() {
+    if (this.scanIndex + 1 < this.input.length) {
+      return this.input[this.scanIndex + 1];
+    }
+    return null;
+  }
+
+  checkDoubleToken(currentChar, nextChar) {
+    const doubleToken = currentChar + nextChar;
+    if (Object.keys(RESWORDSANDSYM).includes(doubleToken)) {
+      return doubleToken;
+    }
+    return null;
   }
 
   parseProgram() {
-    // console.log(this.input);
-    // console.log(this.input.length);
     let result;
-    let data = [];
+    const data = [];
 
     while (this.scanIndex < this.input.length) {
-      let lexeme = this.getNextLexeme(); // Get lexeme
-      // let lexResult = this.lexemeCheck(lexeme);
+      const lexeme = this.getNextLexeme();
       if (lexeme) {
-        // Check if lexeme is not empty
-        result = this.lexemeCheck(lexeme).lexeme; // Call lexemeCheck
-        console.log(result);
+        result = lexeme;
       }
     }
+
     if (result) {
       result.forEach((element) => {
-        let lexCheck = this.lexemeCheck(element);
-        // console.log(result);
+        const lexCheck = this.lexemeCheck(element.lexeme, element.line);
         data.push({
           lexeme: lexCheck.lexeme,
           token: lexCheck.token,
           attribute: lexCheck.attribute,
+          line: lexCheck.line
         });
       });
     }
-		console.table(data)
+
     return data;
   }
 
   getNextLexeme() {
-    let lexeme = ""; // Initialize lexeme
-    const tokens = []; // Array to hold the tokens
-    let inComment = false; // Flag to indicate if we are in a comment
+    let lexeme = "";
+    const tokens = [];
+    let inComment = false;
+    let currentLineNum = this.lineNum;
 
     while (this.scanIndex < this.input.length) {
-      this.ch = this.input[this.scanIndex]; // Update current character
+      this.ch = this.input[this.scanIndex];
 
-      // Check for string literals
+      // When we find a quote, we're starting a string literal
+      // We'll capture everything until the closing quote
       if (this.ch === '"') {
         if (lexeme) {
-          tokens.push(lexeme.toUpperCase()); // Push the accumulated lexeme
-          lexeme = ""; // Reset lexeme
+          tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+          lexeme = "";
         }
-        tokens.push(this.ch); // Push the opening quote
-        this.scanIndex++; // Move to the next character
+        tokens.push({ lexeme: this.ch, line: currentLineNum });
+        this.scanIndex++;
         while (
           this.scanIndex < this.input.length &&
           this.input[this.scanIndex] !== '"'
         ) {
-          lexeme += this.input[this.scanIndex]; // Collect characters inside the string
-          this.scanIndex++; // Move to the next character
+          lexeme += this.input[this.scanIndex];
+          if (this.input[this.scanIndex] === '\n') currentLineNum++;
+          this.scanIndex++;
         }
         if (this.scanIndex < this.input.length) {
-          tokens.push(lexeme.toUpperCase()); // Push the collected string
-          tokens.push(this.input[this.scanIndex]); // Push the closing quote
-          this.scanIndex++; // Move past the closing quote
-          lexeme = ""; // Reset lexeme
+          tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+          tokens.push({ lexeme: this.input[this.scanIndex], line: currentLineNum });
+          this.scanIndex++;
+          lexeme = "";
         }
-        continue; // Continue to the next iteration
+        continue;
       }
 
-      // Check for double reserved word "--"
+      // Look for Ada style comments that start with --
+      // Skip everything until we hit a new line
       if (
         this.ch === "-" &&
         this.scanIndex + 1 < this.input.length &&
         this.input[this.scanIndex + 1] === "-"
       ) {
-        inComment = true; // Start comment
-        this.scanIndex += 2; // Move past the "--"
-        continue; // Continue to the next iteration
+        inComment = true;
+        this.scanIndex += 2;
+        continue;
       }
 
-      // If we are in a comment, ignore characters until a newline
+      // If we're in a comment, keep going until we hit a new line
       if (inComment) {
         if (this.ch === "\n") {
-          inComment = false; // End comment on newline
-          this.lineNum++; // Increment line number
+          inComment = false;
+          currentLineNum++;
+          this.lineNum = currentLineNum;
         }
-        this.scanIndex++; // Move to the next character
-        continue; // Continue to the next iteration
+        this.scanIndex++;
+        continue;
       }
 
-      // Check for reserved words based on RESWORDSANDSYM
-      if (this.ch in RESWORDSANDSYM) {
-        if (lexeme == "") {
-          lexeme += this.ch; // Start collecting the reserved word
-        } else {
-          tokens.push(lexeme.toUpperCase());
+      // Check for special characters and operators
+      // This includes things like :=, >=, <=, etc.
+      if (Object.keys(RESWORDSANDSYM).includes(this.ch)) {
+        if (lexeme) {
+          tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+          lexeme = "";
         }
-        // tokens.push(lexeme.toUpperCase());
-        lexeme = this.ch;
-        this.scanIndex++; // Move to the next character
-        while (
-          this.scanIndex < this.input.length &&
-          this.input[this.scanIndex] in RESWORDSANDSYM
-        ) {
-          lexeme += this.input[this.scanIndex]; // Collect the reserved word
-          this.scanIndex++; // Move to the next character
+
+        const nextChar = this.lookAhead();
+        if (["/", ">", "<", ":"].includes(this.ch) && nextChar) {
+          const doubleToken = this.checkDoubleToken(this.ch, nextChar);
+          if (doubleToken) {
+            tokens.push({ lexeme: doubleToken.toUpperCase(), line: currentLineNum });
+            this.scanIndex += 2;
+            continue;
+          }
         }
-        tokens.push(lexeme.toUpperCase()); // Push the complete reserved word
-        lexeme = ""; // Reset lexeme
-        continue; // Continue to the next iteration
+
+        tokens.push({ lexeme: this.ch.toUpperCase(), line: currentLineNum });
+        this.scanIndex++;
+        continue;
       }
 
-      // Check for floating-point numbers
+      // Handle numeric values
+      // This includes both integers and floating point numbers
       if (/\d/.test(this.ch)) {
-        lexeme += this.ch; // Start collecting digits
-        this.scanIndex++; // Move to the next character
+        lexeme += this.ch;
+        this.scanIndex++;
         while (
           this.scanIndex < this.input.length &&
           (/\d/.test(this.input[this.scanIndex]) ||
             this.input[this.scanIndex] === ".")
         ) {
           lexeme += this.input[this.scanIndex];
-          this.scanIndex++; // Move to the next character
+          this.scanIndex++;
         }
-        tokens.push(lexeme.toUpperCase()); // Push the complete number lexeme
-        lexeme = ""; // Reset lexeme
-        continue; // Continue to the next iteration
+        tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+        lexeme = "";
+        continue;
       }
 
+      // Handle spaces, tabs, and newlines
+      // Keep track of line numbers for error reporting
       if (/\s/.test(this.ch)) {
         if (/\n/.test(this.ch)) {
-          this.lineNum++; // Found a newline
+          currentLineNum++;
+          this.lineNum = currentLineNum;
         }
         if (lexeme) {
-          tokens.push(lexeme.toUpperCase()); // Push the collected lexeme
-          lexeme = ""; // Reset lexeme
+          tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+          lexeme = "";
         }
-        this.scanIndex++; // Move past whitespace
-        continue; // Continue to the next iteration
+        this.scanIndex++;
+        continue;
       } else {
-        lexeme += this.ch; // Collect non-whitespace characters
+        lexeme += this.ch;
       }
-      this.scanIndex++; // Move to the next character
+      this.scanIndex++;
     }
 
-    // Check if there's any remaining lexeme to return
     if (lexeme) {
-      tokens.push(lexeme.toUpperCase()); // Push any remaining lexeme
+      tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
     }
-    return tokens; // Return the array of tokens
-  }
-
-  getNextCh() {
-    if (/\n/.test(this.ch)) {
-      //check for newLines
-      this.lineNum++; // increase the line Number
-    }
-    this.scanIndex++;
-    return this.ch; //return the curr char
-    // this might be where we detect the EOF and predict the escape func
+    return tokens;
   }
 }
 
 export default LexicalAnalyzer;
-
