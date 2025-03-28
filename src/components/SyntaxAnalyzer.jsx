@@ -117,7 +117,6 @@ class SyntaxAnalyzer {
 
     let stat = this.SeqOfStatements();
     // stat && console.log(this.HashTable.lookup(stat.lexeme))
-    
 
     if (!this.match("endT")) return false;
 
@@ -142,7 +141,7 @@ class SyntaxAnalyzer {
 
     //------------------------------------------------insert this.progDetails: values, sizeOfParams, sizeOfLocals into symbolTable------------------------------------------------------------
 
-    console.table(this.HashTable.writeTable());
+    console.table(this.HashTable.writeTable(this.depth));
     this.HashTable.deleteDepth(this.depth);
     this.offset = 0;
     this.depth--;
@@ -265,7 +264,6 @@ class SyntaxAnalyzer {
 
       // Insert into table
       output.list.forEach((id) => {
-        // console.log(id);
 
         this.HashTable.insert(
           id.lexeme,
@@ -274,7 +272,6 @@ class SyntaxAnalyzer {
           (props = {
             ...props,
             typeMark: id.typeMark,
-            token: id.token,
             offset: id.offset,
           })
         );
@@ -462,10 +459,12 @@ class SyntaxAnalyzer {
       // console.log(lhs);
 
       if (!this.match("LparenT")) return false;
-      while (!this.match("RparenT")) {  //skip until the rParent is found
+      while (!this.match("RparenT")) {
+        //skip until the rParent is found
         if (!this.getCurrentToken()) return false;
-      }      if (!this.match("semicolonT")) return false;
-      return lhs
+      }
+      if (!this.match("semicolonT")) return false;
+      return lhs;
     }
   }
 

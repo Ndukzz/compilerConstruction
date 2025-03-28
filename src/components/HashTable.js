@@ -138,7 +138,7 @@ class HashTable {
           let current = this.storage[i].head;
           while (current.data) {
             if (current.data.depth === depth) {
-              outputData.push(current.data.lexeme);
+              outputData.push(current.data);
             }
             if (current.next) {
               current = current.next;
@@ -149,7 +149,9 @@ class HashTable {
         }
       }
       outputData.forEach((element) => {
-        console.log(element);
+        console.log(`
+          Lexeme: ${element.lexeme}, Token: ${element.symToken}
+          `);
       });
       console.log("Exiting depth...");
     } else {
