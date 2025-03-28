@@ -1,0 +1,16 @@
+PROCEDURE main IS
+
+PROCEDURE proc1(a : INTEGER) IS
+BEGIN
+END proc1;
+
+PROCEDURE proc2(a : REAL) IS
+BEGIN
+END proc2;
+
+PROCEDURE proc3(a, b : REAL; c, d : INTEGER; e : REAL) IS
+BEGIN
+END proc3;
+
+BEGIN
+END main;

@@ -90,10 +90,10 @@ html, body {
 .scrollableContent {
     max-height: 400px;
     overflow-y: auto;
-}
-
-/* Table styles */
-.table {
+  }
+  
+  /* Table styles */
+  .table {
     width: 100%;
     border-collapse: collapse;
 }

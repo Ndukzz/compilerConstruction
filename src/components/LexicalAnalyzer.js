@@ -1,4 +1,4 @@
-import { RESWORDSANDSYM } from './constants';
+import { RESWORDSANDSYM } from "./constants";
 
 class LexicalAnalyzer {
   constructor({ input }) {
@@ -13,7 +13,7 @@ class LexicalAnalyzer {
       lexeme: lexeme,
       token: undefined,
       attribute: undefined,
-      line: lineNumber
+      line: lineNumber,
     };
 
     if (Object.keys(RESWORDSANDSYM).includes(lexeme)) {
@@ -22,7 +22,7 @@ class LexicalAnalyzer {
         lexeme: lexeme,
         token,
         attribute: undefined,
-        line: lineNumber
+        line: lineNumber,
       };
       return data;
     }
@@ -38,7 +38,7 @@ class LexicalAnalyzer {
         data = {
           lexeme,
           attribute: lexeme,
-          line: lineNumber
+          line: lineNumber,
         };
       }
       data.token = "idT";
@@ -48,7 +48,7 @@ class LexicalAnalyzer {
         ...data,
         attribute: lexeme,
         lexeme: lexeme,
-        line: lineNumber
+        line: lineNumber,
       };
     }
     return data;
@@ -92,7 +92,7 @@ class LexicalAnalyzer {
           lexeme: lexCheck.lexeme,
           token: lexCheck.token,
           attribute: lexCheck.attribute,
-          line: lexCheck.line
+          line: lexCheck.line,
         });
       });
     }
@@ -123,12 +123,15 @@ class LexicalAnalyzer {
           this.input[this.scanIndex] !== '"'
         ) {
           lexeme += this.input[this.scanIndex];
-          if (this.input[this.scanIndex] === '\n') currentLineNum++;
+          if (this.input[this.scanIndex] === "\n") currentLineNum++;
           this.scanIndex++;
         }
         if (this.scanIndex < this.input.length) {
           tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
-          tokens.push({ lexeme: this.input[this.scanIndex], line: currentLineNum });
+          tokens.push({
+            lexeme: this.input[this.scanIndex],
+            line: currentLineNum,
+          });
           this.scanIndex++;
           lexeme = "";
         }
@@ -142,6 +145,10 @@ class LexicalAnalyzer {
         this.scanIndex + 1 < this.input.length &&
         this.input[this.scanIndex + 1] === "-"
       ) {
+        if (lexeme) {
+          tokens.push({ lexeme: lexeme.toUpperCase(), line: currentLineNum });
+          lexeme = "";
+        }
         inComment = true;
         this.scanIndex += 2;
         continue;
@@ -170,8 +177,12 @@ class LexicalAnalyzer {
         if (["/", ">", "<", ":"].includes(this.ch) && nextChar) {
           const doubleToken = this.checkDoubleToken(this.ch, nextChar);
           if (doubleToken) {
-            tokens.push({ lexeme: doubleToken.toUpperCase(), line: currentLineNum });
+            tokens.push({
+              lexeme: doubleToken.toUpperCase(),
+              line: currentLineNum,
+            });
             this.scanIndex += 2;
+
             continue;
           }
         }

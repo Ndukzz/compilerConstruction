@@ -1,0 +1,13 @@
+PROCEDURE main IS
+
+  a: CONSTANT:= 5;
+  b: CONSTANT := 7.5;
+
+PROCEDURE proc1 IS
+  a:CONSTANT := 10;
+  b:CONSTANT := 12.5;
+BEGIN
+END proc1;
+
+BEGIN
+END main;

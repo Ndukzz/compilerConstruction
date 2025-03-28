@@ -11,7 +11,7 @@ const DataTable = ({ data }) => {
             {
                 Header: 'Token',
                 accessor: 'token',
-            },
+            },      // where is the accessor token? depending on the 
             {
                 Header: 'Attribute',
                 accessor: 'attribute',

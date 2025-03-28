@@ -1,0 +1,12 @@
+PROCEDURE main IS
+
+PROCEDURE proc1 IS
+BEGIN
+END proc1;
+
+PROCEDURE proc2 IS
+BEGIN
+END proc2;
+
+BEGIN
+END main;
