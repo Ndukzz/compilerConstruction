@@ -1,15 +1,14 @@
 import HashTable from "./HashTable.js";
 
-import { addError } from "../store/ErrorsSlice";
-
 class SyntaxAnalyzer2 {
   constructor(tokens) {
     this.procs = {};
+    this.procName = ''
     this.tokens = tokens;
     this.currentToken = 0;
     this.depthTables = [];
     this.errors = [];
-    this.depth = 1;
+    this.depth = 0;
     this.ProcList = [];
     this.hasError = false;
     this.HashTable = new HashTable();
@@ -28,7 +27,7 @@ class SyntaxAnalyzer2 {
   analyze() {
     try {
       const success = this.Prog();
-      // this.depthTables.forEach((depthData) => console.log(depthData));
+      this.depthTables.forEach((depthData) => console.log(depthData));
       this.depthTables.push(success);
 
       // Collect results to return
@@ -49,6 +48,8 @@ class SyntaxAnalyzer2 {
   }
 
   getCurrentToken() {
+    console.log(this.currentToken);
+
     return this.tokens[this.currentToken];
   }
 
@@ -66,6 +67,7 @@ class SyntaxAnalyzer2 {
 
   match(expectedToken) {
     const token = this.getCurrentToken();
+
     if (token && token.token === expectedToken) {
       // console.log(token.lexeme);
 
@@ -86,16 +88,6 @@ class SyntaxAnalyzer2 {
     // begin
     //    statements
     // end name;
-    this.offset = 0;
-    let variable = {
-      lexeme: "",
-      values: {
-        params: [],
-        locals: [],
-      },
-      sizeOfParams: 0,
-      sizeOfLocals: 0,
-    };
 
     //push proc into the hash table with this.procDetails
     //start proc
@@ -108,20 +100,21 @@ class SyntaxAnalyzer2 {
       console.log("Expected procedure name (idT)");
       return false;
     }
-    this.CreateProc(procName, this.depth);
-    variable.lexeme = this.procDetails.lexeme = procName.lexeme;
-
+    
     this.currentToken++;
+    this.offset = 0;
+    
+    //  create a new proc object and set the name and depth
+    this.CreateProc(procName, this.depth);
+    
     this.depth++;
 
-    this.offset = 0;
-
-    let args = this.Args(); //should contain the params and their sizes...
+    let args = this.Args(); //Update the params and their size in procs and SymbolTable
     // console.log(args);
 
     if (!this.match("isT")) return false;
 
-    let declPart = this.DeclarativePart(); // should contain the locals and their sizes..
+    this.DeclarativePart(); // should update the locals and their size in procs and SymbolTable
 
     this.Procedures();
 
@@ -143,7 +136,7 @@ class SyntaxAnalyzer2 {
     ) {
       //------------------------------------------------------------------------------------------------------------end proc
       // this.addError("Expected matching procedure name (idT)");
-      console.log("Expected matching procedure name (", procName.lexeme, ")");
+      this.addError("Expected matching procedure name (", procName.lexeme, ")");
       return false;
     }
 
@@ -154,18 +147,15 @@ class SyntaxAnalyzer2 {
     if (!this.match("semicolonT")) return false;
     // console.log(variable.lexeme, " ", this.depth);
 
-    //------------------------------------------------insert this.procDetails: values, sizeOfParams, sizeOfLocals into symbolTable------------------------------------------------------------
+    //------------------------------------------------insert this.procs: values, sizeOfParams, sizeOfLocals into symbolTable------------------------------------------------------------
 
-    // console.table(this.HashTable.writeTable(this.depth));
+    console.table(this.HashTable.writeTable(this.depth));
 
-    //------------------------------------------------update this.depthTables to be passed to display to the DOM------------------------------------------------------------
+    this.HashTable.writeTable(this.depth).forEach((depthData) => {
+      this.depthTables.push(depthData);
+    });
 
-    // this.HashTable.writeTable(this.depth).forEach((depthData) => {
-    //   this.depthTables.push(depthData);
-    // });
-
-    this.HashTable.writeTable(this.depth);
-    // this.DisplayProcs();
+    this.DisplayProcs();
 
     //------------------------------------------------FUNCTIONS AT THE END OF THE PROCECURE------------------------------------------------------------
 
@@ -173,15 +163,17 @@ class SyntaxAnalyzer2 {
     this.depth--;
 
     //Insert the procedure into the hashTable
-    this.HashTable.insert(procName, "procT", this.depth, this.procDetails);
+    this.HashTable.insert(
+      procName,
+      "procT",
+      this.depth,
+      this.procs[this.depth]
+    );
     // console.log("Nested List after " + procName.lexeme);
     let result = this.HashTable.writeTable();
 
-    //  clear this.procDetails
-    this.ClearprocDetails();
-    // console.log(this.errors);
-
-    return variable;
+    //HANDLE THIS variable VAR TO RETURN NOTHING
+    return true;
   }
 
   Args() {
@@ -189,21 +181,25 @@ class SyntaxAnalyzer2 {
     let list = []; // Initialize empty list to pass to ArgList
 
     if (token && token.token === "LparenT") {
+
       this.match("LparenT");
       const argListResult = this.ArgList(list); // Pass list to ArgList
       if (argListResult) {
         list = argListResult.list; // Update list with result
       }
+      console.log(list);
+
       if (!this.match("RparenT")) {
         console.log("Expected RparenT");
         return false;
       }
     }
-    // insert the lexeme into this.procDetails
-    list.forEach((item) => {
-      this.procDetails.values.params.push(item.lexeme);
-    });
+    // insert the lexeme into this.procs          ***************************************************************
+   
+    this.setParamList(list)
+
     this.SetParamSizes(list);
+    console.log("done!!!!x");
 
     return list; // Return the final list of arguments
   }
@@ -303,22 +299,26 @@ class SyntaxAnalyzer2 {
       };
     }
 
-    // console.log(output);
-
     return output;
   }
 
-  MoreArgs(previousList = []) {
-    const token = this.getCurrentToken();
-    if (token && token.token === "semicolonT") {
-      this.match("semicolonT");
-      return this.ArgList(previousList); // Pass the current list to ArgList
-    }
-    return {
-      locals: 0,
-      params: 0,
-      list: previousList, // Return unchanged list if no more arguments
-    };
+  SetParamSizes(list) {
+    list.forEach((item) => {
+      switch (item.typeMark) {
+        case "integerT":
+          this.procs[this.depth].sizeOfParams += 2;
+          break;
+        case "realT":
+          this.procs[this.depth].sizeOfParams += 4;
+          break;
+        case "charT":
+          this.procs[this.depth].sizeOfParams += 1;
+          break;
+
+        default:
+          break;
+      }
+    });
   }
 
   Mode() {
@@ -332,7 +332,7 @@ class SyntaxAnalyzer2 {
       return null;
     }
   }
-  //
+
   IdentifierList() {
     let idList = [];
     // One or more identifiers separated by commas
@@ -352,7 +352,6 @@ class SyntaxAnalyzer2 {
         return false;
       }
     }
-
     return idList;
   }
 
@@ -422,7 +421,31 @@ class SyntaxAnalyzer2 {
     this.currentToken++;
     return token;
   }
-  // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8- POINT OF INTEREST
+
+  setOffset(typeMark) {
+    // Using if/else statements
+    if (typeMark === "value" || typeMark === "integerT") {
+      this.offset += 2;
+    } else if (typeMark === "valueR" || typeMark === "realT") {
+      this.offset += 4;
+    } else if (typeMark === "charT") {
+      this.offset++;
+    }
+  }
+
+  MoreArgs(previousList = []) {
+    const token = this.getCurrentToken();
+    if (token && token.token === "semicolonT") {
+      this.match("semicolonT");
+      return this.ArgList(previousList); // Pass the current list to ArgList
+    }
+    return {
+      locals: 0,
+      params: 0,
+      list: previousList, // Return unchanged list if no more arguments
+    };
+  }
+
   DeclarativePart() {
     let arg = {
       lexeme: "",
@@ -443,6 +466,7 @@ class SyntaxAnalyzer2 {
         idList,
         typeMark,
       });
+      console.log(idList);
 
       //-------------restructure the object---------------
 
@@ -471,16 +495,43 @@ class SyntaxAnalyzer2 {
         this.setLocalSizes(idList);
         console.log(arg);
         this.HashTable.insert(arg.lexeme, token, this.depth, props);
-
         //add to symbolTable here
       }
       idList.forEach((id) => {
         this.procDetails.values.locals.push(id.lexeme);
       });
     }
-    return { idList, typeMark };
   }
-  // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-
+
+  setLocalSizes(list) {
+    list.forEach((item) => {
+      if (item.typeMark == "charT") {
+        this.procs[this.depth].sizeOfLocals++;
+      }
+      if (item.typeMark == "integerT" || item.typeMark == "value") {
+        this.procs[this.depth].sizeOfLocals += 2;
+      }
+      if (item.typeMark == "realT" || item.typeMark == "valueR") {
+        this.procs[this.depth].sizeOfLocals += 4;
+      }
+    });
+  }
+
+  SeqOfStatements() {
+    let lhs;
+    if (this.getCurrentToken()?.token === "idT") {
+      lhs = this.match("idT");
+      // console.log(lhs);
+
+      if (!this.match("LparenT")) return false;
+      while (!this.match("RparenT")) {
+        //skip until the rParent is found
+        if (!this.getCurrentToken()) return false;
+      }
+      if (!this.match("semicolonT")) return false;
+      return lhs;
+    }
+  }
 
   Procedures() {
     // Handle nested procedures
@@ -504,97 +555,8 @@ class SyntaxAnalyzer2 {
     return true;
   }
 
-  SeqOfStatements() {
-    let lhs;
-    if (this.getCurrentToken()?.token === "idT") {
-      lhs = this.match("idT");
-      // console.log(lhs);
-
-      if (!this.match("LparenT")) return false;
-      while (!this.match("RparenT")) {
-        //skip until the rParent is found
-        if (!this.getCurrentToken()) return false;
-      }
-      if (!this.match("semicolonT")) return false;
-      return lhs;
-    }
-  }
-
-  //  // ______________________________Helper Functions_____________________________________________________________
-
-  ClearprocDetails() {
-    this.procDetails = {
-      lexeme: "",
-      values: {
-        params: [],
-        locals: [],
-      },
-      sizeOfParams: 0,
-      sizeOfLocals: 0,
-    };
-  }
-
-  SetParamSizes(list) {
-    list.forEach((item) => {
-      switch (item.typeMark) {
-        case "integerT":
-          this.procDetails.sizeOfParams += 2;
-          break;
-        case "realT":
-          this.procDetails.sizeOfParams += 4;
-          break;
-
-        default:
-          break;
-      }
-    });
-  }
-
-  setLocalSizes(list) {
-    list.forEach((item) => {
-      if (item.typeMark == "integerT" || item.typeMark == "value") {
-        this.procDetails.sizeOfLocals += 2;
-      }
-      if (item.typeMark == "realT" || item.typeMark == "valueR") {
-        this.procDetails.sizeOfLocals += 4;
-      }
-    });
-  }
-
-  GetType(lexeme) {
-    if (/^[0-9_]+(\.[0-9_]+)?$/.test(lexeme)) {
-      return lexeme.includes(".") ? "realT" : "integerT";
-    } else if (isString(lexeme)) {
-      return "char";
-    }
-  }
-
-  GetTypeMark(token) {
-    switch (token) {
-      case "integerT" || "value":
-        return "integer";
-      case "realT" || "valueR":
-        return "real";
-      case "charT":
-        return "char";
-
-      default:
-        addError("invalid Token Type");
-        break;
-    }
-  }
-  //ASSIGNMENT 5 FUNCTIONS
-
-  setOffset(typeMark) {
-    // Using if/else statements
-    if (typeMark === "value" || typeMark === "integerT") {
-      this.offset += 2;
-    } else if (typeMark === "valueR" || typeMark === "realT") {
-      this.offset += 4;
-    } else if (typeMark === "charT") {
-      this.offset++;
-    }
-  }
+  //  HELPER FUNCTIONS
+  //_________________________________________________________________________________________________________
 
   CreateProc(lexeme, depth) {
     // This is where the issue is - you're not assigning the result anywhere
@@ -608,6 +570,16 @@ class SyntaxAnalyzer2 {
         depth: depth,
       },
     };
+  }
+
+  setParamList(list) {
+    console.log(this.procs);
+    list.forEach(element => {
+      console.log('aInnnn depth', this.depth);
+      
+      this.procs[this.depth].values.params.push(element.lexeme)
+      console.log(this.procs);
+    });
   }
 
   DisplayProcs() {

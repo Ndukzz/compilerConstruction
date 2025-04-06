@@ -127,6 +127,7 @@ class HashTable {
   constructor() {
     this.storage = [];
     this.storageLimit = 210;
+    this.errors = []
   }
 
   writeTable(depth) {
@@ -149,11 +150,10 @@ class HashTable {
         }
       }
       outputData.forEach((element) => {
-        console.log(`
-          Lexeme: ${element.lexeme}, Token: ${element.symToken}
-          `);
+        // console.log(`
+        //     Lexeme: ${element.lexeme}, Token: ${element.symToken}
+        //     `);
       });
-      console.log("Exiting depth...");
     } else {
       this.storage.map((node) => {
         let store = node.head;

@@ -1,4 +1,9 @@
+//To-Do: The depthData is accessed in the syntaxResults and the lexical analysis results should be replaced with the tables of the depthsData
+//create a component to properly handle the data
+//first abstract the component to seperate theme by depth and then create tables or rows to properly display the data
+
 import React, { useState } from "react";
+
 import LexicalAnalyzer from "./components/LexicalAnalyzer";
 import SyntaxAnalyzer from "./components/SyntaxAnalyzer";
 import styles from "./compiler.module.css";
@@ -8,6 +13,7 @@ function App() {
   const [analysisResults, setAnalysisResults] = useState([]);
   const [syntaxResults, setSyntaxResults] = useState(null);
   const [fileName, setFileName] = useState("No file chosen");
+  const [tokenCount, setTokenCount ] = useState(0)
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
@@ -23,8 +29,9 @@ function App() {
 
       // Perform syntax analysis
       const syntaxAnalyzer = new SyntaxAnalyzer(lexicalResults);
-      const syntaxResults = syntaxAnalyzer.analyze();
+      const syntaxResults = syntaxAnalyzer.analyze(); //the data:(depthData) is recieved here
       setSyntaxResults(syntaxResults);
+      console.log(syntaxResults);
     }
   };
 
@@ -46,7 +53,7 @@ function App() {
       </div>
 
       <div className={styles.resultsContainer}>
-        {/* Lexical Analysis Results */}
+        {/* Lexical Analysis Results should be replaced with a component that properly displays the data*/}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>Lexical Analysis Results</div>
           <div className={`${styles.panelContent} ${styles.scrollableContent}`}>
@@ -54,6 +61,7 @@ function App() {
               <table className={styles.table}>
                 <thead>
                   <tr className={styles.tableHeader}>
+                    <th>count</th>
                     <th>Lexeme</th>
                     <th>Token</th>
                     <th>Attribute</th>
@@ -62,6 +70,7 @@ function App() {
                 <tbody>
                   {analysisResults.map((result, index) => (
                     <tr key={index} className={styles.tableRow}>
+                      <td>{++index}</td>
                       <td>{result.lexeme}</td>
                       <td className={styles.tokenCell}>
                         {result.token || "-"}
