@@ -171,6 +171,7 @@ class SyntaxAnalyzer2 {
     );
     // console.log("Nested List after " + procName.lexeme);
     let result = this.HashTable.writeTable();
+    console.log(result)
 
     //HANDLE THIS variable VAR TO RETURN NOTHING
     return true;

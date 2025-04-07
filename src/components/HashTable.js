@@ -127,7 +127,7 @@ class HashTable {
   constructor() {
     this.storage = [];
     this.storageLimit = 210;
-    this.errors = []
+    this.errors = [];
   }
 
   writeTable(depth) {
@@ -149,11 +149,6 @@ class HashTable {
           }
         }
       }
-      outputData.forEach((element) => {
-        // console.log(`
-        //     Lexeme: ${element.lexeme}, Token: ${element.symToken}
-        //     `);
-      });
     } else {
       this.storage.map((node) => {
         let store = node.head;
@@ -168,6 +163,8 @@ class HashTable {
     }
 
     // console.log("Linked List: ", this.storage);
+    // console.table(outputData);
+
     return outputData;
   }
 
@@ -208,6 +205,7 @@ class HashTable {
       depth,
       ...props,
     };
+    // console.log(data);
 
     // Using the result of the hash as its index in hash table
     if (this.storage[index] === undefined) {
@@ -257,17 +255,23 @@ class HashTable {
       .filter(Boolean);
   }
 
-  lookup(lexeme) {
+  lookup(lexeme, depth) {
     let hashIndex = hash(lexeme, this.storageLimit);
+
+    // Check if the bucket exists
+    if (!this.storage[hashIndex]) {
+      return null;
+    }
+
     let current = this.storage[hashIndex].head;
 
     while (current) {
-      if (current.data.lexeme === lexeme) {
+      if (current.data.lexeme === lexeme && current.data.depth == depth) {
         return current.data;
       }
       current = current.next;
     }
-    return false;
+    return null;
   }
 }
 

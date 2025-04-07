@@ -7,14 +7,18 @@ import React, { useState } from "react";
 import LexicalAnalyzer from "./components/LexicalAnalyzer";
 import SyntaxAnalyzer from "./components/SyntaxAnalyzer";
 import styles from "./compiler.module.css";
+import DisplayVars from "./components/DisplayVars";
+import DisplayProcs from "./components/DisplayProcs";
 
 function App() {
   const [fileContent, setFileContent] = useState("");
   const [analysisResults, setAnalysisResults] = useState([]);
   const [syntaxResults, setSyntaxResults] = useState(null);
   const [fileName, setFileName] = useState("No file chosen");
-  const [tokenCount, setTokenCount ] = useState(0)
-
+  const [tokenCount, setTokenCount ] = useState(0);
+  const [variables, setVariables ] = useState([])
+  const [procedures, setProcedures ] = useState([])
+ 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -32,9 +36,21 @@ function App() {
       const syntaxResults = syntaxAnalyzer.analyze(); //the data:(depthData) is recieved here
       setSyntaxResults(syntaxResults);
       console.log(syntaxResults);
+      
+      const depthData = syntaxResults.depthData;
+      const lists = depthData.filter(item => Array.isArray(item));
+      setVariables(lists)
+      const objects = depthData.filter(item => typeof item === 'object' && !Array.isArray(item));
+      setProcedures(objects)
+      // const errors = setErors()
     }
   };
 
+  const showResults = () => {
+    console.log({variables, procedures});
+    
+  }
+ 
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Compiler Construction</h1>
@@ -56,38 +72,9 @@ function App() {
         {/* Lexical Analysis Results should be replaced with a component that properly displays the data*/}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>Lexical Analysis Results</div>
-          <div className={`${styles.panelContent} ${styles.scrollableContent}`}>
-            {analysisResults.length > 0 ? (
-              <table className={styles.table}>
-                <thead>
-                  <tr className={styles.tableHeader}>
-                    <th>count</th>
-                    <th>Lexeme</th>
-                    <th>Token</th>
-                    <th>Attribute</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {analysisResults.map((result, index) => (
-                    <tr key={index} className={styles.tableRow}>
-                      <td>{++index}</td>
-                      <td>{result.lexeme}</td>
-                      <td className={styles.tokenCell}>
-                        {result.token || "-"}
-                      </td>
-                      <td className={styles.attributeCell}>
-                        {result.attribute || "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className={styles.emptyMessage}>
-                No analysis results yet...
-              </div>
-            )}
-          </div>
+          <DisplayVars vars={variables} /> 
+          <DisplayProcs procs={procedures} /> 
+          
         </div>
 
         {/* Syntax Analysis Results */}
@@ -125,6 +112,7 @@ function App() {
             )}
           </div>
         </div>
+            <button onClick={showResults}> Show details</button>
       </div>
     </div>
   );

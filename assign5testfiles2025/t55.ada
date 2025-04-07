@@ -8,5 +8,10 @@ a,b,c,d:real;
   c,d,e,f:integer;
   begin 
   end two;
+   procedure three (out o:integer ; in v, k :real) is
+ 
+  c,d,e,f:real;
+  begin 
+  end ;
 begin
 end test5;
