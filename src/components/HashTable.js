@@ -163,8 +163,8 @@ class HashTable {
     }
 
     // console.log("Linked List: ", this.storage);
-    // console.table(outputData);
-
+    console.log(outputData);
+    
     return outputData;
   }
 
@@ -235,27 +235,41 @@ class HashTable {
   }
 
   deleteDepth(depth) {
-    // console.log(`Deleting all variables with depth of ${depth}`);
-    this.storage = this.storage
-      .map((list) => {
-        if (!list) return list;
+    for (let i = 0; i < this.storage.length; i++) {
+        if (!this.storage[i]) continue;
 
-        let newList = new LinkedList();
-        let current = list.head;
+        let current = this.storage[i].head;
+        let previous = null;
+        let index = 0;
 
+        // Iterate through the linked list
         while (current) {
-          if (current.data.depth !== depth) {
-            newList.insertLast(current.data);
-          }
-          current = current.next;
+            if (current.data.depth === depth) {
+                // Remove the node
+                if (previous === null) {
+                    // It's the head node
+                    this.storage[i].head = current.next;
+                    this.storage[i].size--;
+                    current = this.storage[i].head;
+                } else {
+                    previous.next = current.next;
+                    this.storage[i].size--;
+                    current = previous.next;
+                }
+            } else {
+                previous = current;
+                current = current.next;
+            }
         }
 
-        return newList.size > 0 ? newList : undefined;
-      })
-      .filter(Boolean);
-  }
+        // If the list is now empty, set the bucket to undefined
+        if (this.storage[i] && this.storage[i].size === 0) {
+            this.storage[i] = undefined;
+        }
+    }
+}
 
-  lookup(lexeme, depth) {
+  lookup(lexeme) {
     let hashIndex = hash(lexeme, this.storageLimit);
 
     // Check if the bucket exists
@@ -266,7 +280,7 @@ class HashTable {
     let current = this.storage[hashIndex].head;
 
     while (current) {
-      if (current.data.lexeme === lexeme && current.data.depth == depth) {
+      if (current.data.lexeme === lexeme ) {
         return current.data;
       }
       current = current.next;

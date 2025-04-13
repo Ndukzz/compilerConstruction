@@ -1,11 +1,9 @@
 import HashTable from "./HashTable.js";
 
-import { addError } from "../store/ErrorsSlice";
-import { decl } from "postcss";
-
 class SyntaxAnalyzer2 {
   constructor(tokens) {
-    this.tables = []
+    this.EOF = false;
+    this.tables = [];
     this.procs = {};
     this.tokens = tokens;
     this.procNames = [];
@@ -32,22 +30,27 @@ class SyntaxAnalyzer2 {
     try {
       const success = this.Prog();
       // this.depthTables.forEach((depthData) => console.log(depthData));
-      let resultTables = this.tables
+      let resultTables = this.tables;
       this.depthTables.push(success);
-      console.log(resultTables);
-      
+      console.log(this.errors);
 
       // Collect results to return
       return {
         success,
-        errors: this.errors,
+        errors: [
+          this.errors.length > 0 ? this.errors[this.errors.length - 1] : [],
+        ],
         depthData: this.tables,
+        EOF: this.EOF,
       };
     } catch (error) {
       return {
         success: false,
-        errors: this.errors,
+        errors: [
+          this.errors.length > 0 ? this.errors[this.errors.length - 1] : [],
+        ],
         depthData: this.tables, // passed upward
+        EOF: this.EOF,
       };
     }
   }
@@ -59,10 +62,11 @@ class SyntaxAnalyzer2 {
   addError(message) {
     const token = this.getCurrentToken();
     const lineNumber = token ? token.line : "EOF";
-    const errorMsg = `${message} at line ${lineNumber}`
+    const errorMsg = `${message} at line ${lineNumber}`;
     this.errors.push(errorMsg);
     this.hasError = true;
-    console.error(errorMsg);
+    // console.error(errorMsg);
+    throw new Error(errorMsg)
   }
 
   match(expectedToken) {
@@ -74,9 +78,9 @@ class SyntaxAnalyzer2 {
       return token;
     }
     // this.addError(`Expected token type '${expectedToken}'`);
-    const errorMsg = `Expected token type '${expectedToken}' got ${token.token}`
+    const errorMsg = `Expected token type '${expectedToken}' got ${token.token}, ${token.lexeme}`;
     console.log(errorMsg);
-    this.addError(errorMsg)
+    this.addError(errorMsg);
     return false;
   }
 
@@ -97,48 +101,66 @@ class SyntaxAnalyzer2 {
       },
       sizeOfParams: 0,
       sizeOfLocals: 0,
+      depth: this.depth,
     };
 
     //push proc into the hash table with this.procDetails
     //start proc
-    if (!this.match("procedureT")) return false;
+    if (!this.match("procedureT")) {
+      this.addError(
+        "Expected ProcedureT at line ",
+        this.getCurrentToken().line
+      );
+      return false;
+    }
 
     const procName = this.getCurrentToken();
     this.procNames.push(procName.lexeme);
+
     // console.log(this.procNames);
 
     if (!procName || procName.token !== "idT") {
       // this.addError("Expected procedure name (idT)");
-      const error = "Expected procedure name (idT)" 
+      const error = "Expected procedure name (idT)";
       this.addError(error);
       return false;
     }
-    // this.CreateProc(procName, this.depth);
+
     progDetails.lexeme = procName.lexeme;
+    this.procs[this.depth] = progDetails;
 
     this.currentToken++;
 
     this.offset = 0;
     let args = this.Args(); //should contain the params and their sizes...
+
     progDetails.values.params = args.list;
     progDetails.sizeOfParams = args.paramSize;
 
     if (!this.match("isT")) return false;
 
-
     let declPart = this.DeclarativePart(); // should contain the locals and their sizes..
-    
+
     progDetails.sizeOfLocals = declPart.localSize;
     progDetails.values.locals = declPart.returnedIds;
 
-    this.procDetails.sizeOfLocals = 0;    //clearing the global sizeOfLocals
+    this.procDetails.sizeOfLocals = 0; //clearing the global sizeOfLocals
 
-
-    this.Procedures();
+    while (this.getCurrentToken().token === "procedureT") {
+      //PROCEDURES
+      const procedures = this.Procedures();
+    }
 
     if (!this.match("beginT")) return false;
 
-    let stat = this.SeqOfStatements();
+    let token = this.getCurrentToken();
+
+    if (token.token == "idT") {
+      console.log(token);
+
+      let stat = this.SeqOfStatements();
+    }
+
     // stat && console.log(this.HashTable.lookup(stat.lexeme))
 
     // console.log(this.getCurrentToken());
@@ -154,43 +176,50 @@ class SyntaxAnalyzer2 {
     ) {
       //------------------------------------------------------------------------------------------------------------end proc
       // this.addError("Expected matching procedure name (idT)");
-      const error = `Expected matching procedure name ( ${procName.lexeme} )`
-      this.addError(error)
+      const error = `Expected matching procedure name ( ${procName.lexeme} )`;
+      this.addError(error);
 
       return false;
     }
 
     this.currentToken++;
-    let depthTable = this.HashTable.writeTable(this.depth)
-    this.tables.push(depthTable);
-    
-
-    // console.log("Procedure ", progDetails.lexeme);
 
     if (!this.match("semicolonT")) return false;
 
     //------------------------------------------------FUNCTIONS AT THE END OF THE PROCECURE------------------------------------------------------------
 
+    // console.log("progDetails", progDetails);
+    // console.log("procs", this.procs);
+
+    // this.HashTable.insert(procName, "procT", this.depth , progDetails);
+
+    let result = this.HashTable.writeTable(this.depth);
+    
+    this.tables.push(this.procs[this.depth])
     this.HashTable.deleteDepth(this.depth);
+    console.log("Depth " + this.depth);
+    
     this.depth--;
 
-    this.HashTable.insert(procName, "procT", this.depth, progDetails);
-
-    // console.log("Nested List after " + procName.lexeme);
-    let result = this.HashTable.writeTable(this.depth);
-    console.log("Depth", this.depth, " ", result);
-
-    //---------//---------//---------//---------//---------//---------VERY IMPORTANT
-
-    console.log(progDetails);
-    let depth0 = this.HashTable.writeTable(this.depth)
+    let currProc = this.procs[this.depth]
+    this.HashTable.insert(currProc.lexeme, "procT", currProc.depth, currProc )
+    delete this.procs[this.depth +1]
+    console.log("Depth", this.depth +1, " ", result);
     
-    this.tables.push(progDetails);
+    console.log("procs:", this.procs);
     
-    if (this.depth == 0 ) {
-      this.tables.push(depth0)
-    }
-
+    this.tables.push(result);
+    // if (this.depth == 0) {
+      //   this.tables.push(depth0);
+      // }
+      // SET EOF TOKEN TO TRUE
+      
+      if (this.depth == 0) {
+        console.log("FINAL RESULTS:", this.tables)
+        this.EOF = true;
+        this.tables.push(this.procs[this.depth])
+      }
+      console.log(this.procs);
 
     return this.tables;
   }
@@ -201,7 +230,6 @@ class SyntaxAnalyzer2 {
 
     this.depth++;
     if (token && token.token === "LparenT") {
-
       this.match("LparenT");
       const argListResult = this.ArgList(list); // Pass list to ArgList
       if (argListResult) {
@@ -218,7 +246,7 @@ class SyntaxAnalyzer2 {
     });
     let paramSize = this.SetParamSizes(list);
 
-    return {list, paramSize}; // Return the final list of arguments
+    return { list, paramSize }; // Return the final list of arguments
   }
 
   ArgList(previousList = []) {
@@ -281,10 +309,7 @@ class SyntaxAnalyzer2 {
         let currOffset = this.offset;
         output.list[i].offset = currOffset;
 
-        let lookupResult = this.HashTable.lookup(
-          output.list[i].lexeme,
-          this.depth
-        );
+        let lookupResult = this.HashTable.lookup(output.list[i].lexeme);
         if (lookupResult == null) {
           this.setOffset(output.list[i].lexeme, output.list[i].typeMark);
         }
@@ -451,8 +476,9 @@ class SyntaxAnalyzer2 {
     };
 
     let typeMark;
-    let returnedIds = []
-    let idList, data = [];
+    let returnedIds = [];
+    let idList,
+      data = [];
     // Variable declarations: list of identifiers, their type, and a semicolon
     while (this.getCurrentToken() && this.getCurrentToken().token === "idT") {
       idList = this.IdentifierList();
@@ -487,7 +513,7 @@ class SyntaxAnalyzer2 {
           this.setOffset(arg.lexeme, typeMark.typeMark);
         }
 
-        returnedIds.push(idList[index].lexeme)
+        returnedIds.push(idList[index].lexeme);
 
         let token = idList[index].token;
         let props = {
@@ -510,49 +536,22 @@ class SyntaxAnalyzer2 {
     }
 
     //ORGANIZING OUTPUT
-    let localSize = this.procDetails.sizeOfLocals    
-    
+    let localSize = this.procDetails.sizeOfLocals;
+
     //RETURN THE LIST AND LOCALSIZES
-    return { returnedIds, localSize  };
+    return { returnedIds, localSize };
   }
   // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-
 
   Procedures() {
     // Handle nested procedures
-    if (
-      this.getCurrentToken() &&
-      this.getCurrentToken().token === "procedureT"
-    ) {
+    while (this.getCurrentToken().token === "procedureT") {
       let prog = this.Prog();
 
-      this.Procedures();
-    }
-
-    while (this.getCurrentToken()?.token === "procedureT") {
-      this.Prog();
-      if (!this.Prog()) {
-        // this.addError("Error in nested procedure");
-        console.log("Error in nested procedure");
-        return false;
-      }
+      let procedures = this.Procedures();
+      return true;
     }
     return true;
-  }
-
-  SeqOfStatements() {
-    let lhs;
-    if (this.getCurrentToken()?.token === "idT") {
-      lhs = this.match("idT");
-      // console.log(lhs);
-
-      if (!this.match("LparenT")) return false;
-      while (!this.match("RparenT")) {
-        //skip until the rParent is found
-        if (!this.getCurrentToken()) return false;
-      }
-      if (!this.match("semicolonT")) return false;
-      return lhs;
-    }
   }
 
   //  // ______________________________Helper Functions_____________________________________________________________
@@ -571,8 +570,8 @@ class SyntaxAnalyzer2 {
           break;
       }
     });
-    let paramSize = this.procDetails.sizeOfParams
-    
+    let paramSize = this.procDetails.sizeOfParams;
+
     return paramSize;
   }
 
@@ -586,33 +585,11 @@ class SyntaxAnalyzer2 {
     }
   }
 
-  GetType(lexeme) {
-    if (/^[0-9_]+(\.[0-9_]+)?$/.test(lexeme)) {
-      return lexeme.includes(".") ? "realT" : "integerT";
-    } else if (isString(lexeme)) {
-      return "char";
-    }
-  }
-
-  GetTypeMark(token) {
-    switch (token) {
-      case "integerT" || "value":
-        return "integer";
-      case "realT" || "valueR":
-        return "real";
-      case "charT":
-        return "char";
-
-      default:
-        addError("invalid Token Type");
-        break;
-    }
-  }
   //ASSIGNMENT 5 FUNCTIONS
 
   setOffset(lexeme, typeMark) {
     // Using if/else statements
-    if (!this.HashTable.lookup(lexeme, this.depth)) {
+    if (!this.HashTable.lookup(lexeme)) {
       if (typeMark === "value" || typeMark === "integerT") {
         this.offset += 2;
       } else if (typeMark === "valueR" || typeMark === "realT") {
@@ -620,26 +597,197 @@ class SyntaxAnalyzer2 {
       } else if (typeMark === "charT") {
         this.offset++;
       }
-      
     }
   }
 
-  CreateProc(lexeme, depth) {
-    // This is where the issue is - you're not assigning the result anywhere
-    // Also, the syntax for object spread is incorrect
-    this.procs = {
-      ...this.procs,
-      [depth]: {
-        // Use bracket notation for dynamic property names
-        ...this.procDetails,
-        lexeme: lexeme,
-        depth: depth,
-      },
-    };
+  //ASSIGNMENT 6 METHODS
+
+  SeqOfStatements() {
+    // SeqOfStatments -> Statement ; StatTail || return
+    //if this.currentToken == idt else return empty
+    if (this.getCurrentToken()?.token == "idT") {
+      let statement = this.Statement();
+
+      this.Consume("semicolonT");
+
+      let statTail = this.StatTail();
+    }
+    return true;
   }
 
-  DisplayProcs() {
-    console.log(this.procs);
+  Statement() {
+    //   Statement -> AssignStat || IOStat
+    //if this.currentToken == "idt"
+    if (this.getCurrentToken().token == "idT") {
+      const assignStat = this.AssignStat();
+
+      return true;
+    } else {
+      const ioStat = this.IOStat();
+
+      return true;
+    }
+  }
+
+  StatTail() {
+    // StatTail -> Statement ; StatTail || return
+    if (this.getCurrentToken().token == "idT") {
+      const statement = this.Statement();
+
+      this.getCurrentToken("semicolonT") && this.Consume("semicolonT");
+
+      const statTail = this.StatTail();
+    } else {
+      return true;
+    }
+  }
+
+  AssignStat() {
+    // AssignStat -> idt := Expr
+    if (this.getCurrentToken().token == "idT") {
+      let token = this.getCurrentToken();
+      // let result = this.HashTable.writeTable(this.depth);
+      // console.log(`Looking up ${token.lexeme} in depth ${this.depth}: ${result}. `);
+      
+
+      if (this.HashTable.lookup(token.lexeme)) {
+        this.Consume("idT");
+      } else {
+        this.addError(`${token.lexeme} is undefined.`)
+        return true
+      }
+
+      this.getCurrentToken().token == "assignOp" && this.Consume("assignOp");
+
+      const expr = this.Expr();
+      return true;
+    } else {
+      return true;
+    }
+  }
+
+  IOStat() {
+    // IOStat -> empty method
+    // This method is intentionally left blank as per the instructions
+    return true; // Assuming IOStat is always valid
+  }
+
+  Expr() {
+    // Expr -> Relation
+    const relation = this.Relation();
+    return true;
+  }
+
+  Relation() {
+    // Relation -> SimpleExpr
+
+    const simpleExpr = this.SimpleExpr();
+    return true;
+  }
+
+  SimpleExpr() {
+    // SimpleExpr -> Term MoreTerm
+    const term = this.Term();
+    const moreTerm = this.MoreTerm();
+
+    return true;
+  }
+
+  Term() {
+    // Term -> Factor MoreFactor
+    const factor = this.Factor();
+    const moreFactor = this.MoreFactor();
+    return true;
+  }
+
+  MoreTerm() {
+    // MoreTerm -> addopt Term MoreTerm || return
+    if (this.getCurrentToken().token == "addOp") {
+      this.Consume("addOp");
+      const term = this.Term();
+
+      const moreTerm = this.MoreTerm();
+    }
+
+    return true;
+  }
+
+  MoreFactor() {
+    // MoreFactor -> mulopt Factor MoreFactor || return
+
+    if (this.getCurrentToken().token == "mulOp") {
+      this.Consume("mulOp");
+      const factor = this.Factor();
+      const moreFactor = this.MoreFactor();
+    } else {
+      return true;
+    }
+
+    return true; // Assuming no more factors is a valid option
+  }
+
+  Factor() {
+    // Factor -> idt || numt || ( Expr )|| nott Factor|| signopt Factor
+
+    if (this.getCurrentToken().token == "idT") {
+      //checking if the idT is in hashTable
+      let token = this.getCurrentToken();
+
+      if (this.HashTable.lookup(token.lexeme)) {
+        this.Consume("idT");
+      } else {
+        this.errors.push(`Undefined token: ${token.lexeme} `);
+        console.log(token.lexeme);
+      }
+      return true;
+    } else if (
+      this.getCurrentToken().token == "value" ||
+      this.getCurrentToken().token == "valueR"
+    ) {
+      this.getCurrentToken().token = "numT";
+      this.Consume("numT");
+      return true;
+    } else if (this.getCurrentToken().token == "LparenT") {
+      this.Consume("LparenT");
+      const expr = this.Expr();
+      this.Consume("RparenT");
+      return true;
+    } else if (this.getCurrentToken().token == "notT") {
+      this.Consume("notT");
+      const factor = this.Factor();
+      return true;
+    } else if (this.getCurrentToken().token == "addOp") {
+      //use addOp = signOp
+      this.Consume("addOp");
+      console.log(this.getCurrentToken());
+
+      const factor = this.Factor();
+      return true;
+    } else {
+      this.addError("Expected idT, numT, LparenT, notT, or signOp");
+    }
+  }
+
+  // Factor -> idt || numt || ( Expr )|| nott Factor|| signopt Factor
+
+  IsNumber(value) {
+    try {
+      if (!(typeof parseInt(value) === "number")) {
+        throw new Error("Passed value is not a number");
+      } else {
+        console.log("Passed value " + value + " is a number");
+        return true;
+      }
+    } catch (error) {
+      console.log("An error occurred: ", error.message);
+      return false;
+    }
+  }
+
+  Consume(token) {
+    // console.log(token, this.getCurrentToken().line);
+
+    this.getCurrentToken().token == token && this.currentToken++;
   }
 }
 

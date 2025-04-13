@@ -1,13 +1,15 @@
 import styles from "./DisplayVars.module.css";
 
 const DisplayVars = ({ vars }) => {
+  console.log(vars);
+  
   return (
     <div className={styles.container}>
       <div className={styles.header}>Variables</div>
       <div className={styles.content}>
         {vars.map((element, index) => (
           <div key={index}>
-            <h2 className={styles.depthHeader}>Depth {element[0].depth}</h2>
+            <h2 className={styles.depthHeader}>Depth {element[0]?.depth}</h2>
             <table className={styles.table}>
               <thead className={styles.tableHeader}>
                 <tr>

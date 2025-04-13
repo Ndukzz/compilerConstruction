@@ -12,6 +12,6 @@ a,b,c,d:real;
  
   c,d,e,f:real;
   begin 
-  end ;
+  end threE;
 begin
 end test5;

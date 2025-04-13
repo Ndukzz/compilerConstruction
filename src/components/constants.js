@@ -22,6 +22,7 @@ export const RESWORDSANDSYM = {
     END: "endT",
     "--": "openCommentT",
     ":=": "assignOp",
+    OR: "addOp",
     "+": "addOp",
     "-": "addOp",
     REM: "mulOp",

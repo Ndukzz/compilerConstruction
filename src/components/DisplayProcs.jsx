@@ -1,9 +1,10 @@
 const DisplayProcs = ({ procs }) => {
-  console.log(procs);
+  // console.log(procs);
 
   const content = (
     <div>
-      <h2>Procedures</h2>
+      <h2 style={{marginLeft: "50px"
+      }}>Procedures</h2>
       <table
         style={{
           border: "1px solid black",

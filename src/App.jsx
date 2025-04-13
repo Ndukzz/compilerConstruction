@@ -15,10 +15,10 @@ function App() {
   const [analysisResults, setAnalysisResults] = useState([]);
   const [syntaxResults, setSyntaxResults] = useState(null);
   const [fileName, setFileName] = useState("No file chosen");
-  const [tokenCount, setTokenCount ] = useState(0);
-  const [variables, setVariables ] = useState([])
-  const [procedures, setProcedures ] = useState([])
- 
+  const [tokenCount, setTokenCount] = useState(0);
+  const [variables, setVariables] = useState([]);
+  const [procedures, setProcedures] = useState([]);
+
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -36,21 +36,22 @@ function App() {
       const syntaxResults = syntaxAnalyzer.analyze(); //the data:(depthData) is recieved here
       setSyntaxResults(syntaxResults);
       console.log(syntaxResults);
-      
+
       const depthData = syntaxResults.depthData;
-      const lists = depthData.filter(item => Array.isArray(item));
-      setVariables(lists)
-      const objects = depthData.filter(item => typeof item === 'object' && !Array.isArray(item));
-      setProcedures(objects)
+      const lists = depthData.filter((item) => Array.isArray(item));
+      setVariables(lists);
+      const objects = depthData.filter(
+        (item) => typeof item === "object" && !Array.isArray(item)
+      );
+      setProcedures(objects);
       // const errors = setErors()
     }
   };
 
   const showResults = () => {
-    console.log({variables, procedures});
-    
-  }
- 
+    console.log({ variables, procedures });
+  };
+
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Compiler Construction</h1>
@@ -72,47 +73,50 @@ function App() {
         {/* Lexical Analysis Results should be replaced with a component that properly displays the data*/}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>Lexical Analysis Results</div>
-          <DisplayVars vars={variables} /> 
-          <DisplayProcs procs={procedures} /> 
-          
+          <DisplayVars vars={variables} />
+          <DisplayProcs procs={procedures} />
         </div>
 
         {/* Syntax Analysis Results */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>Syntax Analysis Results</div>
-          <div className={styles.panelContent}>
-            {syntaxResults ? (
-              <div>
-                <div
-                  className={`${styles.syntaxResult} ${
-                    syntaxResults.success
-                      ? styles.successMessage
-                      : styles.errorMessage
-                  }`}
-                >
-                  {syntaxResults.success
-                    ? "Syntax Analysis Successful"
-                    : "Syntax Analysis Failed"}
-                </div>
-                {syntaxResults.errors.length > 0 && (
-                  <div className={styles.errorList}>
-                    <h3>Errors:</h3>
-                    <ul>
-                      {syntaxResults.errors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
+  
+          <div className={styles.panel}>
+            <div className={styles.panelHeader}>Syntax Analysis Results</div>
+            <div className={styles.panelContent}>
+              {syntaxResults ? (
+                <div>
+                  <div
+                    className={`${styles.syntaxResult} ${
+                      syntaxResults.success && syntaxResults.EOF 
+                        ? styles.successMessage
+                        : styles.errorMessage
+                    }`}
+                  >
+                    {console.log(syntaxResults.EOF)}
+                    {syntaxResults.EOF
+                      ? "Syntax Analysis Successful"
+                      : "Syntax Analysis Failed"}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className={styles.emptyMessage}>
-                No syntax analysis results yet...
-              </div>
-            )}
+                  {syntaxResults.errors.length > 0 && !syntaxResults.EOF && (
+                    <div className={styles.errorList}>
+                      
+                      <h3>Errors:</h3>
+                      <ul>
+                        {syntaxResults.errors.map((error, index) => (
+                          <li key={index}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.emptyMessage}>
+                  No syntax analysis results yet...
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-            <button onClick={showResults}> Show details</button>
+       
+        {/* <button onClick={showResults}> Show details</button> */}
       </div>
     </div>
   );
