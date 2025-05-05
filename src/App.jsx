@@ -35,7 +35,7 @@ function App() {
       const syntaxAnalyzer = new SyntaxAnalyzer(lexicalResults);
       const syntaxResults = syntaxAnalyzer.analyze(); //the data:(depthData) is recieved here
       setSyntaxResults(syntaxResults);
-      console.log(syntaxResults);
+      // console.log(syntaxResults);
 
       const depthData = syntaxResults.depthData;
       const lists = depthData.filter((item) => Array.isArray(item));

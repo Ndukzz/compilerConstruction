@@ -24,6 +24,12 @@ class SyntaxAnalyzer2 {
       sizeOfParams: 0,
       sizeOfLocals: 0,
     };
+    // assignment 7 globals
+    (this.tempCount = 0),
+      (this.stack = []),
+      (this.node = { lex: "", size: null });
+    this.TAC = "";
+    this.typeList = []
   }
 
   analyze() {
@@ -66,11 +72,13 @@ class SyntaxAnalyzer2 {
     this.errors.push(errorMsg);
     this.hasError = true;
     // console.error(errorMsg);
-    throw new Error(errorMsg)
+    throw new Error(errorMsg);
   }
 
-  match(expectedToken) {
+  Match(expectedToken) {
     const token = this.getCurrentToken();
+    // console.log(token.token);
+
     if (token && token.token === expectedToken) {
       // console.log(token.lexeme);
 
@@ -106,7 +114,7 @@ class SyntaxAnalyzer2 {
 
     //push proc into the hash table with this.procDetails
     //start proc
-    if (!this.match("procedureT")) {
+    if (!this.Match("procedureT")) {
       this.addError(
         "Expected ProcedureT at line ",
         this.getCurrentToken().line
@@ -134,12 +142,25 @@ class SyntaxAnalyzer2 {
     this.offset = 0;
     let args = this.Args(); //should contain the params and their sizes...
 
+    //AFTER THE DECLARATION OF PARAMS, INSERT THE BP
+
+    // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8- POINT OF INTEREST //ADDING BP TO THE STACK : DEPTH ++
+
+    //INSERTING BP INTO THE STACK
+    if (this.depth == 2) {
+      this.pushStack("BP", 0);
+    }
+
+    console.log(this.stack);
     progDetails.values.params = args.list;
     progDetails.sizeOfParams = args.paramSize;
 
-    if (!this.match("isT")) return false;
+    if (!this.Match("isT")) return false;
 
     let declPart = this.DeclarativePart(); // should contain the locals and their sizes..
+    this.stack.map((item) => {
+      console.log(item);
+    });
 
     progDetails.sizeOfLocals = declPart.localSize;
     progDetails.values.locals = declPart.returnedIds;
@@ -151,13 +172,13 @@ class SyntaxAnalyzer2 {
       const procedures = this.Procedures();
     }
 
-    if (!this.match("beginT")) return false;
+    if (!this.Match("beginT")) return false;
+    let tac = `BEGIN ${procName.lexeme}`;
+    this.Emit(tac);
 
     let token = this.getCurrentToken();
 
     if (token.token == "idT") {
-      console.log(token);
-
       let stat = this.SeqOfStatements();
     }
 
@@ -165,7 +186,10 @@ class SyntaxAnalyzer2 {
 
     // console.log(this.getCurrentToken());
 
-    if (!this.match("endT")) return false;
+    if (!this.Match("endT")) return false;
+
+    tac = `ENDP ${procName.lexeme}`;
+    this.Emit(tac);
 
     // Make sure the end name matches the procedure name
     const endProcName = this.getCurrentToken();
@@ -184,7 +208,7 @@ class SyntaxAnalyzer2 {
 
     this.currentToken++;
 
-    if (!this.match("semicolonT")) return false;
+    if (!this.Match("semicolonT")) return false;
 
     //------------------------------------------------FUNCTIONS AT THE END OF THE PROCECURE------------------------------------------------------------
 
@@ -194,32 +218,46 @@ class SyntaxAnalyzer2 {
     // this.HashTable.insert(procName, "procT", this.depth , progDetails);
 
     let result = this.HashTable.writeTable(this.depth);
-    
-    this.tables.push(this.procs[this.depth])
-    this.HashTable.deleteDepth(this.depth);
-    console.log("Depth " + this.depth);
-    
-    this.depth--;
+    console.log(result);
 
-    let currProc = this.procs[this.depth]
-    this.HashTable.insert(currProc.lexeme, "procT", currProc.depth, currProc )
-    delete this.procs[this.depth +1]
-    console.log("Depth", this.depth +1, " ", result);
-    
-    console.log("procs:", this.procs);
-    
+    // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8- POINT OF INTEREST //TAKING BP OUT OF STACK : DEPTH ---
+
+    this.tables.push(this.procs[this.depth]);
+    this.HashTable.deleteDepth(this.depth);
+    let stack = this.stack;
+    console.log("depth", this.depth);
+    stack.map(item => {
+      console.log(item.lex);
+      
+    });
+
+    // console.log("Depth " + this.depth);
+
+    this.depth--;
+    this.popAfterOldBP(this.stack);
+
+    let currProc = this.procs[this.depth];
+    this.HashTable.insert(currProc.lexeme, "procT", currProc.depth, currProc);
+    delete this.procs[this.depth + 1];
+    // console.log("Depth", this.depth + 1, " ", result);
+
+    // console.log("procs:", this.procs);
+
     this.tables.push(result);
     // if (this.depth == 0) {
-      //   this.tables.push(depth0);
-      // }
-      // SET EOF TOKEN TO TRUE
-      
-      if (this.depth == 0) {
-        console.log("FINAL RESULTS:", this.tables)
-        this.EOF = true;
-        this.tables.push(this.procs[this.depth])
-      }
-      console.log(this.procs);
+    //   this.tables.push(depth0);
+    // }
+    // SET EOF TOKEN TO TRUE
+
+    if (this.depth == 0) {
+      // console.log("FINAL RESULTS:", this.tables);
+      this.EOF = true;
+      this.tables.push(this.procs[this.depth]);
+      tac = `START PROC ${procName.lexeme}`
+      this.Emit(tac)
+    }
+    console.log(this.TAC);
+    
 
     return this.tables;
   }
@@ -230,12 +268,12 @@ class SyntaxAnalyzer2 {
 
     this.depth++;
     if (token && token.token === "LparenT") {
-      this.match("LparenT");
+      this.Match("LparenT");
       const argListResult = this.ArgList(list); // Pass list to ArgList
       if (argListResult) {
         list = argListResult.list; // Update list with result
       }
-      if (!this.match("RparenT")) {
+      if (!this.Match("RparenT")) {
         console.log("Expected RparenT");
         return false;
       }
@@ -278,14 +316,14 @@ class SyntaxAnalyzer2 {
           offset: null, //add the offset here
         };
         output.list.push(arg);
-      });
+        });
     } else {
       console.log("Invalid identifier list in arguments");
       return false;
     }
     //_________________________________________________________________________________________________________
 
-    if (!this.match("colonT")) return false;
+    if (!this.Match("colonT")) return false;
 
     let typeMark = this.TypeMark();
     if (typeMark) {
@@ -294,6 +332,8 @@ class SyntaxAnalyzer2 {
       } else if (typeMark.typeMark == "realT") {
         output.params += ids.length * 4;
       }
+
+      
 
       // Update typeMark for all arguments just added
       let startIndex = output.list.length - ids.length;
@@ -314,7 +354,11 @@ class SyntaxAnalyzer2 {
           this.setOffset(output.list[i].lexeme, output.list[i].typeMark);
         }
 
-        // console.log(output.list[i]);
+        console.log(output.list[i]);
+        let size = 0;
+        (output.list[i].typeMark == "realT" || output.list[i].typeMark == "valueR") ? size = 4 : size = 2;
+        this.pushStack(output.list[i].lexeme, size)
+
       }
 
       //if mode => pass as props
@@ -334,6 +378,8 @@ class SyntaxAnalyzer2 {
           })
         );
       });
+
+    
     } else {
       console.log("Invalid type mark in arguments");
       return false;
@@ -356,7 +402,7 @@ class SyntaxAnalyzer2 {
   MoreArgs(previousList = []) {
     const token = this.getCurrentToken();
     if (token && token.token === "semicolonT") {
-      this.match("semicolonT");
+      this.Match("semicolonT");
       return this.ArgList(previousList); // Pass the current list to ArgList
     }
     return {
@@ -382,7 +428,7 @@ class SyntaxAnalyzer2 {
     let idList = [];
     // One or more identifiers separated by commas
     if (this.getCurrentToken()?.token === "idT") {
-      let id = this.match("idT");
+      let id = this.Match("idT");
       if (id) {
         id = {
           ...id,
@@ -403,8 +449,8 @@ class SyntaxAnalyzer2 {
 
   IdentifierListPrime(idList) {
     if (this.getCurrentToken()?.token === "commaT") {
-      this.match("commaT");
-      let id = this.match("idT");
+      this.Match("commaT");
+      let id = this.Match("idT");
       if (id) {
         idList.push(id);
         this.IdentifierListPrime(idList);
@@ -435,12 +481,14 @@ class SyntaxAnalyzer2 {
       // if constant value
       let lexeme = token.lexeme;
       this.currentToken++;
-      if (!this.match("assignOp")) {
+      if (!this.Match("assignOp")) {
         // this.addError("Expected assignOp after constT");
         console.log("Expected assignOp after constT");
         return false;
       }
       let value = this.Value();
+
+      // console.log(token);
 
       // insert into the table
       return {
@@ -467,7 +515,7 @@ class SyntaxAnalyzer2 {
     this.currentToken++;
     return token;
   }
-  // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-88-8-8-8-8-8-8-8-8- POINT OF INTEREST
+
   DeclarativePart() {
     let arg = {
       lexeme: "",
@@ -482,12 +530,15 @@ class SyntaxAnalyzer2 {
     // Variable declarations: list of identifiers, their type, and a semicolon
     while (this.getCurrentToken() && this.getCurrentToken().token === "idT") {
       idList = this.IdentifierList();
-      if (!this.match("colonT")) return false;
+      // console.log(idList);
+
+      if (!this.Match("colonT")) return false;
       typeMark = this.TypeMark();
-      if (!this.match("semicolonT")) return false;
+      if (!this.Match("semicolonT")) return false;
       data.push({
         idList,
         typeMark: typeMark.typeMark,
+        token: typeMark.token,
       });
 
       //-------------restructure the object---------------
@@ -519,13 +570,17 @@ class SyntaxAnalyzer2 {
         let props = {
           typeMark: arg.typeMark,
           offset: arg.offset,
+          const: true,
         };
 
         if (!this.HashTable.lookup(arg.lexeme)) {
           this.HashTable.insert(arg.lexeme, token, this.depth, props);
           this.setLocalSizes(arg.typeMark);
+          // console.log(arg.lexeme, arg.typeMark);
         }
-
+        
+        this.pushStack(arg.lexeme, arg.typeMark);
+        
         //add to symbolTable here
       }
       //reset the procDetails // localSize to be specific
@@ -533,6 +588,7 @@ class SyntaxAnalyzer2 {
       idList.forEach((id) => {
         this.procDetails.values.locals.push(id.lexeme);
       });
+      // console.log(idList);
     }
 
     //ORGANIZING OUTPUT
@@ -604,11 +660,10 @@ class SyntaxAnalyzer2 {
 
   SeqOfStatements() {
     // SeqOfStatments -> Statement ; StatTail || return
-    //if this.currentToken == idt else return empty
     if (this.getCurrentToken()?.token == "idT") {
       let statement = this.Statement();
 
-      this.Consume("semicolonT");
+      this.Match("semicolonT");
 
       let statTail = this.StatTail();
     }
@@ -634,7 +689,7 @@ class SyntaxAnalyzer2 {
     if (this.getCurrentToken().token == "idT") {
       const statement = this.Statement();
 
-      this.getCurrentToken("semicolonT") && this.Consume("semicolonT");
+      this.getCurrentToken("semicolonT") && this.Match("semicolonT");
 
       const statTail = this.StatTail();
     } else {
@@ -643,25 +698,40 @@ class SyntaxAnalyzer2 {
   }
 
   AssignStat() {
-    // AssignStat -> idt := Expr
+    // AssignStat -> idt := Expr || ProcCall
     if (this.getCurrentToken().token == "idT") {
       let token = this.getCurrentToken();
       // let result = this.HashTable.writeTable(this.depth);
       // console.log(`Looking up ${token.lexeme} in depth ${this.depth}: ${result}. `);
-      
 
-      if (this.HashTable.lookup(token.lexeme)) {
-        this.Consume("idT");
-      } else {
-        this.addError(`${token.lexeme} is undefined.`)
-        return true
+      let ptr = this.HashTable.lookup(token.lexeme);
+      if (ptr.const) {
+        //if ptr.const == true
+      }
+      if (ptr) {
+        this.Match("idT");
+      }
+      // else {
+      //   this.addError(`${token.lexeme} is undefined.`);
+      //   return true;
+      // }
+      
+      this.getCurrentToken().token == "assignOp" && this.Match("assignOp");
+      
+      const expr = this.Expr();
+      console.log(expr);
+      
+      this.typeList = [];
+      let tac = `${token.lexeme} = ${expr}`
+      if (this.depth == 2 ) {
+        tac = `${this.findBPPointer(token.lexeme)} = ${this.findBPPointer(expr)}`
       }
 
-      this.getCurrentToken().token == "assignOp" && this.Consume("assignOp");
+      this.Emit(tac)
 
-      const expr = this.Expr();
       return true;
     } else {
+      this.typeList = [];
       return true;
     }
   }
@@ -675,94 +745,157 @@ class SyntaxAnalyzer2 {
   Expr() {
     // Expr -> Relation
     const relation = this.Relation();
-    return true;
+    console.log(this.typeList);
+    
+    return relation;
   }
 
   Relation() {
     // Relation -> SimpleExpr
 
     const simpleExpr = this.SimpleExpr();
-    return true;
+    return simpleExpr;
   }
 
   SimpleExpr() {
+    //  E =>  syn(T) -> R
     // SimpleExpr -> Term MoreTerm
-    const term = this.Term();
-    const moreTerm = this.MoreTerm();
+    const term = this.Term(); //This is expressed as "T"   console.log(factor);
 
-    return true;
+    const moreTerm = this.MoreTerm(term); //This is expressed as "R"    
+    console.log(moreTerm);
+
+    return moreTerm;
   }
 
   Term() {
+    // T
     // Term -> Factor MoreFactor
     const factor = this.Factor();
-    const moreFactor = this.MoreFactor();
-    return true;
+    
+    let factorData = this.GetTypeMark(factor);
+    // console.log(factorData);
+    this.typeList.push(factorData.typeMark);
+
+    const moreFactor = this.MoreFactor(factor);
+    console.log(moreFactor);
+
+    return moreFactor;
   }
 
-  MoreTerm() {
+  MoreTerm(inhVal) {
+    // R
     // MoreTerm -> addopt Term MoreTerm || return
+
     if (this.getCurrentToken().token == "addOp") {
-      this.Consume("addOp");
+      // create temp values
+      // create TAC   _tx = a addOp R
+      const addOp = this.Match("addOp");
       const term = this.Term();
 
-      const moreTerm = this.MoreTerm();
-    }
+      let factorData = this.GetTypeMark(term);
+      // console.log(factorData);
+      // this.typeList.push(factorData.typeMark);
 
-    return true;
+      const temp = this.NewTemp();
+      this.HashTable.insert(temp, "idT", this.depth);
+      this.pushStack(temp, 2)
+      let ptr = this.HashTable.lookup(temp);
+
+    
+      console.log("AHHHHHHHHHH!!!!!", temp,  this.findBPPointer(temp));
+      
+
+      let tac = ``;
+      this.depth === 2 ? (
+        tac = `${this.findBPPointer(temp)} = ${this.findBPPointer(inhVal)} ${addOp.lexeme} ${this.findBPPointer(term)}  `
+      ) : (
+        tac = `${temp} = ${inhVal} ${addOp.lexeme} ${term}`
+      )
+      this.Emit(tac);
+
+      console.log(tac);
+
+      //pass temp value to this.MoreTerm
+      const moreTerm = this.MoreTerm(temp);
+      return moreTerm;
+    } else {
+      return inhVal;
+    }
   }
 
-  MoreFactor() {
+  MoreFactor(inhVal) {
+    // create temp values, insert to hash and Synthesize
     // MoreFactor -> mulopt Factor MoreFactor || return
 
     if (this.getCurrentToken().token == "mulOp") {
-      this.Consume("mulOp");
+      const mulOp = this.Match("mulOp");
       const factor = this.Factor();
-      const moreFactor = this.MoreFactor();
+      // create temp values  and insert into HashTable
+
+      let factorData = this.GetTypeMark(factor);
+      // console.log(factorData);
+      this.typeList.push(factorData.typeMark);
+
+      const temp = this.NewTemp();
+      this.HashTable.insert(temp, "idT", this.depth);
+      this.pushStack(temp, 2)
+
+      let ptr = this.HashTable.lookup(temp);
+
+      // create TAC   _tx = a mulOp R
+      const tac = `${temp} = ${inhVal} ${mulOp.lexeme} ${factor}  `;
+      this.Emit(tac);
+
+
+      console.log(tac);
+      //pass temp value to this.MoreTerm
+      const moreFactor = this.MoreFactor(temp);
+      return moreFactor;
     } else {
-      return true;
+      return inhVal;
     }
 
     return true; // Assuming no more factors is a valid option
   }
 
   Factor() {
+    //returns the lexeme value
     // Factor -> idt || numt || ( Expr )|| nott Factor|| signopt Factor
 
-    if (this.getCurrentToken().token == "idT") {
+    let token = this.getCurrentToken();
+    if (token.token == "idT") {
       //checking if the idT is in hashTable
-      let token = this.getCurrentToken();
 
       if (this.HashTable.lookup(token.lexeme)) {
-        this.Consume("idT");
+        this.Match("idT");
+        return token.lexeme;
       } else {
         this.errors.push(`Undefined token: ${token.lexeme} `);
         console.log(token.lexeme);
       }
-      return true;
-    } else if (
-      this.getCurrentToken().token == "value" ||
-      this.getCurrentToken().token == "valueR"
-    ) {
-      this.getCurrentToken().token = "numT";
-      this.Consume("numT");
-      return true;
-    } else if (this.getCurrentToken().token == "LparenT") {
-      this.Consume("LparenT");
+      return false;
+    } else if (token.token == "value" || token.token == "valueR") {
+      token.token = "numT";
+      this.Match("numT");
+      return token.lexeme;
+    } else if (token.token == "LparenT") {
+      // fix
+      this.Match("LparenT");
       const expr = this.Expr();
-      this.Consume("RparenT");
-      return true;
-    } else if (this.getCurrentToken().token == "notT") {
-      this.Consume("notT");
+      this.Match("RparenT");
+      return token.lexeme;
+    } else if (token.token == "notT") {
+      let notT = this.Match("notT");
       const factor = this.Factor();
-      return true;
-    } else if (this.getCurrentToken().token == "addOp") {
+      // const notValue = `notT + factor`
+      return factor;
+    } else if (token.token == "addOp") {
       //use addOp = signOp
-      this.Consume("addOp");
-      console.log(this.getCurrentToken());
+      let addOp = this.Match("addOp");
 
       const factor = this.Factor();
-      return true;
+      return `${addOp.lexeme}${factor}`;
     } else {
       this.addError("Expected idT, numT, LparenT, notT, or signOp");
     }
@@ -788,6 +921,171 @@ class SyntaxAnalyzer2 {
     // console.log(token, this.getCurrentToken().line);
 
     this.getCurrentToken().token == token && this.currentToken++;
+  }
+
+  // Assignment 7 Section:
+  ProcCall() {
+    // ProcCall -> idt ( Params )
+    this.Match("idT");
+    this.Match("LparenT");
+    const params = this.Params();
+    this.Match("RparenT");
+  }
+
+  Params() {
+    // Params -> idt ParamsTail || num ParamsTail || return
+    const token = this.getCurrentToken().token;
+
+    if (token == "idT" || token == "value" || token == "valueR") {
+      if (token == "idT") {
+        this.Match(token);
+      }
+      if (token == "value" || "valueR") {
+        this.Consume(token);
+      }
+
+      this.ParamsTail();
+    } else {
+      return true;
+    }
+  }
+
+  ParamsTail() {
+    // ParamsTail -> , idt ParamsTail || , num ParamsTail || return
+    if (this.Match("commaT")) {
+      if (token == "idT" || token == "value" || token == "valueR") {
+        if (token == "idT") {
+          this.Match(token);
+        }
+        if (token == "value" || "valueR") {
+          this.Consume(token);
+        }
+      }
+
+      this.ParamsTail();
+    } else {
+      return true;
+    }
+  }
+
+  Emit(tac) {
+    //Pushes TAC messages into .tac file
+    let message = `${tac} \n`
+    this.TAC += message; 
+
+  }
+
+  NewTemp() {
+    //creates temporary values and pushes them onto this.sta ck
+    //if depth !>= 1 : else use the BPcounters
+    this.tempCount++;
+    let newTemp = `_t${this.tempCount}`;
+
+    return newTemp;
+  }
+  pushStack(lex, size) {
+    if (size === "integerT" || size == "value") {
+      size = 2;
+    } else if (size === "realT" || size === "valueR") {
+      size = 4;
+    }
+    let node = { lex, size };
+
+    this.stack.push(node);
+  }
+
+  popAfterOldBP(stack, inclusive = false) {
+    const oldBPIndex = stack.findIndex((item) => item.lex === "BP");
+
+    if (oldBPIndex === -1) {
+      return []; // 'Old_BP' not found
+    }
+
+    const startIndex = inclusive ? oldBPIndex : oldBPIndex + 1;
+    const poppedItems = stack.splice(startIndex);
+    return poppedItems;
+  }
+
+
+  findBPPointer(targetLexeme, bpLexeme = 'BP') {
+    // Find BP index (current activation frame)
+    const bpIndex = this.stack.findIndex(item => item.lex === bpLexeme);
+    if (bpIndex === -1) {
+        console.log(`"${bpLexeme}" not found in stack`);
+        return 0;
+    }
+
+    let sum = 0;
+    let found = false;
+
+    // PHASE 1: First search upward (called procedures, positive sum)
+    for (let i = bpIndex + 1; i < this.stack.length; i++) {
+        sum += this.stack[i].size; // Count all frames traversed
+        
+        if (this.stack[i].lex === targetLexeme) {
+            found = true;
+            break;
+        }
+    }
+
+    sum = `_bp-${sum}`; 
+
+    if (found) return sum;
+
+    // Reset sum if not found upward
+    sum = 0;
+
+    // PHASE 2: Then search downward (outer scopes, negative sum)
+    for (let i = bpIndex - 1; i >= 0; i--) {
+        sum += this.stack[i].size; // Count all frames traversed
+        
+        if (this.stack[i].lex === targetLexeme) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.log(`Target lexeme "${targetLexeme}" not found in stack`);
+        return 0;
+    }
+
+    sum = `_bp+${sum}`; 
+
+    return sum;
+  }
+
+  GetTypeMark(lex) {
+    lex = this.removeHyphen(lex);
+    
+    // First try to convert to number
+    const num = Number(lex);
+    
+    // Check if it's a valid number (not NaN)
+    if (!isNaN(num)) {
+        // Check if it's a float (has decimal point and fractional part)
+        if (String(lex).includes('.') && !Number.isInteger(num)) {
+            return { lex, typeMark: "realT" };
+        } else {
+            return { lex, typeMark: "integerT" };
+        }
+    }
+    // If not a number, look up in hash table
+    else {
+        let lookup = this.HashTable.lookup(lex);
+        lookup.typeMark == "value" || lookup.typeMark == "integerT" ? lookup.typeMark = "integerT" : lookup.typeMark = "realT";
+        return { lex, typeMark: lookup.typeMark };
+    }
+}
+
+  removeHyphen(str) {
+    // Check if the string contains a hyphen
+    const containsHyphen = str.includes("-");
+
+    // Remove all hyphens from the string
+    const resultString = str.replace(/-/g, "");
+
+    return resultString;
   }
 }
 

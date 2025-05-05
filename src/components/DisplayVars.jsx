@@ -11,7 +11,7 @@ const DisplayVars = ({ vars }) => {
           <div key={index}>
             <h2 className={styles.depthHeader}>Depth {element[0]?.depth}</h2>
             <table className={styles.table}>
-              <thead className={styles.tableHeader}>
+              <thead className={styles.tableHeader}> 
                 <tr>
                   <th>Name</th>
                   <th>Type</th>
