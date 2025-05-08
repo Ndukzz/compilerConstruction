@@ -11,4 +11,6 @@ procedure test5 is
   end two;
 begin
   a := -5.9 * W + 45 - 2.3 / 4;
+
+  two(a,b);
 end test5;

@@ -18,6 +18,7 @@ function App() {
   const [tokenCount, setTokenCount] = useState(0);
   const [variables, setVariables] = useState([]);
   const [procedures, setProcedures] = useState([]);
+  const [tacFile, setTacFile] = useState([])
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
@@ -38,6 +39,7 @@ function App() {
       // console.log(syntaxResults);
 
       const depthData = syntaxResults.depthData;
+      setTacFile(syntaxResults.tacFile)
       const lists = depthData.filter((item) => Array.isArray(item));
       setVariables(lists);
       const objects = depthData.filter(
@@ -75,10 +77,12 @@ function App() {
           <div className={styles.panelHeader}>Lexical Analysis Results</div>
           <DisplayVars vars={variables} />
           <DisplayProcs procs={procedures} />
+          
+
         </div>
 
         {/* Syntax Analysis Results */}
-  
+
           <div className={styles.panel}>
             <div className={styles.panelHeader}>Syntax Analysis Results</div>
             <div className={styles.panelContent}>
@@ -115,7 +119,10 @@ function App() {
               )}
             </div>
           </div>
-       
+          <h2>TAC File</h2>
+          {tacFile && tacFile.map((line, index) => (
+            <div className={styles.tacLine} key={index}>{line}</div>
+          ))}
         {/* <button onClick={showResults}> Show details</button> */}
       </div>
     </div>

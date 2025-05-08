@@ -18,6 +18,12 @@ html, body {
     overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
+tacLine {
+    line-height: 1px;
+    margin: 0px;
+    padding: 5px;
+}
+
 .title {
     font-size: 3rem;
     font-weight: bold;
