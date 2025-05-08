@@ -1,3 +1,4 @@
+import { decl } from "postcss";
 import HashTable from "./HashTable.js";
 // TODO:  create this.Emit functions for START, ENDP, PUSH, START PROC
 // fix the MUL ASM
@@ -162,10 +163,6 @@ class SyntaxAnalyzer2 {
     if (!this.Match("isT")) return false;
 
     let declPart = this.DeclarativePart(); // should contain the locals and their sizes..
-    console.log(declPart);
-
-    let asm = `${procName.lexeme} PROC \n push bp \n mov bp, sp \n sub sp, ${declPart.localSize} \n\n`;
-    this.ASM += asm;
 
     progDetails.sizeOfLocals = declPart.localSize;
     progDetails.values.locals = declPart.returnedIds;
@@ -181,7 +178,8 @@ class SyntaxAnalyzer2 {
     let tac = `BEGIN ${procName.lexeme}`; //BEGIN ProcName
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     this.Emit(tac);
-
+    let asm = `${procName.lexeme} PROC \npush bp \nmov bp, sp \nsub sp, ${declPart.localSize} \n\n`;
+    this.ASM += asm;
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     let token = this.getCurrentToken();
 
@@ -198,6 +196,8 @@ class SyntaxAnalyzer2 {
     tac = `ENDP ${procName.lexeme}`; // ENDP ProcName
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     this.Emit(tac);
+    asm =  `add sp, ${declPart.localSize}\npop bp \nret ${args.paramSize} \n${procName.lexeme} ENDP\n\n`;
+    this.ASM += asm
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     // Make sure the end name matches the procedure name
     const endProcName = this.getCurrentToken();
@@ -815,20 +815,20 @@ class SyntaxAnalyzer2 {
       let tac = ``;
       let dest, source1, source2, op;
       if (this.depth === 2) {
-        dest = this.findBPPointer(temp);
-        source1 = this.findBPPointer(inhVal);
-        source2 = this.findBPPointer(term);
-        op = addOp.lexeme;
         tac = `${dest} = ${source1} ${op} ${source2}`;
-        // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
-        this.Emit(tac, dest, source1, op, source2);
-        // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
+        // // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
+        // this.Emit(tac, dest, source1, op, source2);
+        // // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       } else {
         tac = `${temp} = ${inhVal} ${addOp.lexeme} ${term}`;
-        // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
-        this.Emit(tac, temp, inhVal, addOp.lexeme, term);
-        // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       }
+      dest = this.findBPPointer(temp);
+      source1 = this.findBPPointer(inhVal);
+      source2 = this.findBPPointer(term);
+      op = addOp.lexeme;
+      // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
+      this.Emit(tac, dest, source1, op, source2);
+      // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
 
       // console.log(tac);
 
@@ -862,7 +862,15 @@ class SyntaxAnalyzer2 {
       // create TAC   _tx = a mulOp R
       const tac = `${temp} = ${inhVal} ${mulOp.lexeme} ${factor}  `; //dest = var1 * var2
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
-      this.Emit(tac, temp, inhVal, mulOp.lexeme, factor);
+      let dest, source1, source2, op;
+
+      dest = this.findBPPointer(temp);
+      source1 = this.findBPPointer(inhVal);
+      source2 = this.findBPPointer(factor);
+      op = mulOp.lexeme;
+      console.log("DESTIINATION"+ dest);
+      
+      this.Emit(tac, dest , inhVal, mulOp.lexeme, factor);
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
 
       // console.log(tac);
@@ -1045,51 +1053,59 @@ class SyntaxAnalyzer2 {
   }
 
   findBPPointer(targetLexeme, bpLexeme = "BP") {
-    // Find BP index (current activation frame)
-    const bpIndex = this.stack.findIndex((item) => item.lex === bpLexeme);
-    if (bpIndex === -1) {
-      console.log(`"${bpLexeme}" not found in stack`);
-      return 0;
-    }
-
-    let sum = 0;
-    let found = false;
-
-    // PHASE 1: First search upward (called procedures, positive sum)
-    for (let i = bpIndex + 1; i < this.stack.length; i++) {
-      sum += this.stack[i].size; // Count all frames traversed
-
-      if (this.stack[i].lex === targetLexeme) {
-        found = true;
-        break;
+    // Check if the targetLexeme is in the stack
+    const targetIndex = this.stack.findIndex((item) => item.lex === targetLexeme);
+    if (targetIndex !== -1) {
+      // If the targetLexeme is in the stack, run the method
+      // Find BP index (current activation frame)
+      const bpIndex = this.stack.findIndex((item) => item.lex === bpLexeme);
+      if (bpIndex === -1) {
+        console.log(`"${bpLexeme}" not found in stack`);
+        return 0;
       }
-    }
 
-    sum = `_bp-${sum}`;
+      let sum = 0;
+      let found = false;
 
-    if (found) return sum;
+      // PHASE 1: First search upward (called procedures, positive sum)
+      for (let i = bpIndex + 1; i < this.stack.length; i++) {
+        sum += this.stack[i].size; // Count all frames traversed
 
-    // Reset sum if not found upward
-    sum = 0;
-
-    // PHASE 2: Then search downward (outer scopes, negative sum)
-    for (let i = bpIndex - 1; i >= 0; i--) {
-      sum += this.stack[i].size; // Count all frames traversed
-
-      if (this.stack[i].lex === targetLexeme) {
-        found = true;
-        break;
+        if (this.stack[i].lex === targetLexeme) {
+          found = true;
+          break;
+        }
       }
+
+      sum = `_bp-${sum}`;
+
+      if (found) return sum;
+
+      // Reset sum if not found upward
+      sum = 0;
+
+      // PHASE 2: Then search downward (outer scopes, negative sum)
+      for (let i = bpIndex - 1; i >= 0; i--) {
+        sum += this.stack[i].size; // Count all frames traversed
+
+        if (this.stack[i].lex === targetLexeme) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        console.log(`Target lexeme "${targetLexeme}" not found in stack`);
+        return 0;
+      }
+
+      sum = `_bp+${sum}`;
+
+      return sum;
+    } else {
+      // If the targetLexeme is not in the stack, return the targetLexeme
+      return targetLexeme;
     }
-
-    if (!found) {
-      console.log(`Target lexeme "${targetLexeme}" not found in stack`);
-      return 0;
-    }
-
-    sum = `_bp+${sum}`;
-
-    return sum;
   }
 
   GetTypeMark(lex) {
@@ -1159,6 +1175,13 @@ class SyntaxAnalyzer2 {
   Mov(dest, source1, op = null, source2 = null) {
     if (op !== null && source2 !== null) {
       // Handle arithmetic operations
+      let containsBP = this.containsBP(dest)
+      containsBP ?  dest = `[${dest}]` : null;
+      containsBP = this.containsBP(source1)
+      containsBP ?  source1 = `[${source1}]` : null;
+      containsBP = this.containsBP(source2)
+      containsBP ?  source2 = `[${source2}]` : null;
+
       if (op == "+" || op == "-") {
         console.log("ADdition fork");
         let result = `mov ax, ${source1}\n`;
@@ -1174,13 +1197,11 @@ class SyntaxAnalyzer2 {
         result += `mov ${dest}, ax\n`;
         this.ASM += "\n" + result;
       }
-    } else if (op) {
-      console.log("addOP " + op);
     } else {
       // Handle simple move
-      let result = `mov ax, ${source1}\n`;
-      result += `mov ${dest}, ax\n`;
-      this.ASM += "\n" + result;
+      let result = `mov ax, [${source1}]\n`;
+      result += `mov [${dest}], ax\n`;
+      this.ASM += "\n" + result + '\n';
     }
   }
 
