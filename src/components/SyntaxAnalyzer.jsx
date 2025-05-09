@@ -3,6 +3,7 @@ import HashTable from "./HashTable.js";
 // TODO:  ADD TABS INTO THE ASM FILE WHERE NECESSARY FOR READABILITY
 // the depth 1 variables are gonna reamein the same in the asm file
 // differentiate between the addops and mulops in the ASM code
+// conduct arithmetic operations in the parser :: done
 
 class SyntaxAnalyzer2 {
   constructor(tokens) {
@@ -19,7 +20,12 @@ class SyntaxAnalyzer2 {
     this.hasError = false;
     this.HashTable = new HashTable();
     this.offset = 0;
-    this.ASM = ".model small\n.stack 100h \n.data \n.code\n\n";
+    this.Svars = "";
+    this.ASM =
+      ".model small\n.586 \n.stack 100h\n.data \n" +
+      this.Svars +
+      "\n" +
+      ".code\n\n";
     this.procDetails = {
       lexeme: "",
       values: {
@@ -32,27 +38,39 @@ class SyntaxAnalyzer2 {
     // assignment 7 globals
     (this.tempCount = 0),
       (this.stack = []),
-      (this.node = { lex: "", size: null });
+      (this.node = { lex: "", size: null, value: 0 });
     this.TAC = [];
     this.typeList = [];
     //assignment 8 globals
     this.SvarCount = 0;
+    this.messVal = null;
+    this.Message = "";
+    this.userInput = null;
+    this.OutputMessages = [];
   }
 
   analyze() {
     try {
       const success = this.Prog();
-      // this.depthTables.forEach((depthData) => console.log(
-      // depthData
-      // ));
       let resultTables = this.tables;
       this.depthTables.push(success);
+      console.log(this.stack);
+
+      // Process all output messages
+      this.OutputMessages.forEach((message) => {
+        this.Svars += message + " \n";
+      });
+      console.log(this.Svars);
+
+      // Insert Svars into ASM file
+      this.ASM = this.insertAfterData(this.Svars);
       console.log(this.ASM);
 
       // Collect results to return
       return {
         success,
         tacFile: this.TAC,
+        asmFile: this.ASM,
         errors: [
           this.errors.length > 0 ? this.errors[this.errors.length - 1] : [],
         ],
@@ -65,10 +83,30 @@ class SyntaxAnalyzer2 {
         errors: [
           this.errors.length > 0 ? this.errors[this.errors.length - 1] : [],
         ],
-        depthData: this.tables, // passed upward
+        depthData: this.tables,
         EOF: this.EOF,
       };
     }
+  }
+
+  insertAfterData(stringToInsert) {
+    // Find the position of .data directive
+    const dataIndex = this.ASM.indexOf(".data");
+
+    if (dataIndex === -1) {
+      return this.ASM; // Return original if .data not found
+    }
+
+    // Find the end of the .data line (next newline)
+    const endOfLine = this.ASM.indexOf("\n", dataIndex);
+
+    // Insert the string after .data and update this.ASM
+    this.ASM =
+      this.ASM.slice(0, endOfLine + 1) +
+      stringToInsert +
+      this.ASM.slice(endOfLine + 1);
+
+    return this.ASM;
   }
 
   getCurrentToken() {
@@ -199,8 +237,6 @@ class SyntaxAnalyzer2 {
 
     let stat = this.SeqOfStatements();
 
-    // stat && console.log(this.HashTable.lookup(stat.lexeme))
-
     // console.log(this.getCurrentToken());
 
     if (!this.Match("endT")) return false;
@@ -246,6 +282,7 @@ class SyntaxAnalyzer2 {
     this.HashTable.deleteDepth(this.depth);
     let stack = this.stack;
     console.log("depth", this.depth);
+
     stack.map((item) => {
       console.log(item);
     });
@@ -727,8 +764,6 @@ class SyntaxAnalyzer2 {
     if (idt.token == "idT") {
       let token = this.getCurrentToken();
       let idt = token;
-      // let result = this.HashTable.writeTable(this.depth);
-      // console.log(`Looking up ${token.lexeme} in depth ${this.depth}: ${result}. `);
 
       let ptr = this.HashTable.lookup(token.lexeme);
       if (ptr.const) {
@@ -737,11 +772,20 @@ class SyntaxAnalyzer2 {
       if (ptr) {
         this.Match("idT");
       }
+
       token = this.getCurrentToken().token;
       if (token == "assignOp") {
         this.Match("assignOp");
         const expr = this.Expr();
-        // console.log(expr);
+        console.log(idt.lexeme, " ", expr);
+
+        //  UPDATE THE VALUE OF THE VARIABLE ON THE LEFT OF THE ASSIGNMENT STATEMENT
+        if (this.IsNumber(expr)) {
+          this.updateStackValue(idt.lexeme, expr);
+        } else {
+          let data = this.getStackData(expr);
+          this.updateStackValue(idt.lexeme, data.value);
+        }
 
         this.typeList = [];
         let tac = `${idt.lexeme} = ${expr}`;
@@ -825,6 +869,12 @@ class SyntaxAnalyzer2 {
       this.pushStack(temp, 2);
       let ptr = this.HashTable.lookup(temp);
 
+      //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
+      let var1 = this.getStackData(inhVal).value;
+      let var2 = this.getStackData(term).value;
+      addOp.lexeme == "+" ? (var1 += var2) : (var1 -= var2);
+      this.updateStackValue(temp, var1);
+
       // console.log("AHHHHHHHHHH!!!!!", temp, this.findBPPointer(temp));
 
       let tac = ``;
@@ -873,6 +923,14 @@ class SyntaxAnalyzer2 {
       this.pushStack(temp, 2);
 
       let ptr = this.HashTable.lookup(temp);
+
+      //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
+      console.log(this.getStackData(inhVal));
+
+      let var1 = this.getStackData(inhVal).value;
+      let var2 = this.getStackData(factor).value;
+      mulOp.lexeme == "*" ? (var1 *= var2) : (var1 /= var2);
+      this.updateStackValue(temp, var1);
 
       // create TAC   _tx = a mulOp R
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
@@ -948,17 +1006,20 @@ class SyntaxAnalyzer2 {
   // Factor -> idt || numt || ( Expr )|| nott Factor|| signopt Factor
 
   IsNumber(value) {
-    try {
-      if (!(typeof parseInt(value) === "number")) {
-        throw new Error("Passed value is not a number");
-      } else {
-        console.log("Passed value " + value + " is a number");
-        return true;
-      }
-    } catch (error) {
-      console.log("An error occurred: ", error.message);
+    // First check if it's a temporary variable
+    if (value.startsWith("_t")) {
       return false;
     }
+
+    // Try to convert to number
+    const num = Number(value);
+
+    // Check if it's a valid number (not NaN)
+    if (!isNaN(num)) {
+      return true;
+    }
+
+    return false;
   }
 
   Consume(token) {
@@ -1054,7 +1115,7 @@ class SyntaxAnalyzer2 {
     } else if (size === "realT" || size === "valueR") {
       size = 4;
     }
-    let node = { lex, size };
+    let node = { ...this.node, lex: lex, size: size };
 
     this.stack.push(node);
   }
@@ -1230,6 +1291,63 @@ class SyntaxAnalyzer2 {
     return str.includes("bp");
   }
 
+  getStackData(lexeme) {
+    // Find the node in the stack that matches the lexeme
+    const node = this.stack.find((item) => item.lex === lexeme);
+
+    if (!node) {
+      console.log(`Lexeme "${lexeme}" not found in stack`);
+      return null;
+    }
+
+    // Return an object with all the node's properties
+    return {
+      lexeme: node.lex,
+      size: node.size,
+      value: node.value || 0,
+      // Get the BP pointer for this variable
+      bpPointer: this.findBPPointer(lexeme),
+      // Get the type information from the hash table
+      typeInfo: this.HashTable.lookup(lexeme),
+    };
+  }
+
+  updateStackValue(lexeme, newValue) {
+    // Find the node in the stack that matches the lexeme
+    const nodeIndex = this.stack.findIndex((item) => item.lex === lexeme);
+
+    if (nodeIndex === -1) {
+      console.log(`Lexeme "${lexeme}" not found in stack`);
+      return false;
+    }
+
+    // Get the node's type information
+    const typeInfo = this.HashTable.lookup(lexeme);
+
+    // Convert the value based on the type
+    let convertedValue;
+    if (typeInfo.typeMark === "integerT" || typeInfo.typeMark === "value") {
+      convertedValue = parseInt(newValue);
+    } else if (
+      typeInfo.typeMark === "realT" ||
+      typeInfo.typeMark === "valueR"
+    ) {
+      convertedValue = parseFloat(newValue);
+    } else {
+      convertedValue = newValue;
+    }
+
+    // Update the node's value
+    this.stack[nodeIndex].value = convertedValue;
+
+    // Generate TAC for the update
+    const bpPointer = this.findBPPointer(lexeme);
+    let tac = `mov [${bpPointer}], ${convertedValue}`;
+    this.Emit(tac);
+
+    return true;
+  }
+
   //
   // Assignment 8 methods
 
@@ -1239,6 +1357,7 @@ class SyntaxAnalyzer2 {
       let inStat = this.InStat();
     } else {
       let outStat = this.OutStat();
+      console.log(this.OutputMessages);
     }
   }
 
@@ -1252,7 +1371,16 @@ class SyntaxAnalyzer2 {
     //Generate TAC for output
     idList.forEach((item) => {
       let BP_pos = this.findBPPointer(item.lexeme);
+      console.log(this.Message);
+
       // console.log(`The position of ${item.lexeme} is ${BP_pos} `);
+
+      this.updateStackValue(item.lexeme, this.userInput);
+      console.log(
+        this.stack.map((item) => {
+          console.log(item);
+        })
+      );
 
       let tac = `rdi ${BP_pos}`;
       this.Emit(tac);
@@ -1315,9 +1443,16 @@ class SyntaxAnalyzer2 {
       if (token.token === "putLnT") {
         tac = "wrln";
         this.Emit(tac);
+        let value = this.getStackData(writeList[0][0]);
+        this.messVal = value;
+        window.alert(this.Message + " " + value.value);
+      } else {
+        this.userInput = prompt(this.Message);
+        this.OutputMessages.push(S_var + " DB " + this.Message + `,\"$\"`);
       }
+      console.log("User entered:", this.messVal); // userInput contains what the user typed
 
-      return true;
+      return this.Message;
     }
     return false;
   }
@@ -1375,6 +1510,7 @@ class SyntaxAnalyzer2 {
 
     // Get the content between quotes
     let string = this.Match("literalT");
+    this.Message = string;
 
     // Match closing double quote
     this.Match("doubleQuotesT");

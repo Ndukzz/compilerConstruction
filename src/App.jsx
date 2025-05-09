@@ -18,7 +18,8 @@ function App() {
   const [tokenCount, setTokenCount] = useState(0);
   const [variables, setVariables] = useState([]);
   const [procedures, setProcedures] = useState([]);
-  const [tacFile, setTacFile] = useState([])
+  const [tacFile, setTacFile] = useState([]);
+  const [asmFile, setAsmFile] = useState("");
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
@@ -39,7 +40,8 @@ function App() {
       // console.log(syntaxResults);
 
       const depthData = syntaxResults.depthData;
-      setTacFile(syntaxResults.tacFile)
+      setTacFile(syntaxResults.tacFile);
+      setAsmFile(syntaxResults.asmFile);
       const lists = depthData.filter((item) => Array.isArray(item));
       setVariables(lists);
       const objects = depthData.filter(
@@ -73,56 +75,65 @@ function App() {
 
       <div className={styles.resultsContainer}>
         {/* Lexical Analysis Results should be replaced with a component that properly displays the data*/}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>Lexical Analysis Results</div>
-          {/* <DisplayVars vars={variables} />
-          <DisplayProcs procs={procedures} /> */}
-          
-
-        </div>
+      
 
         {/* Syntax Analysis Results */}
 
-          <div className={styles.panel}>
-            <div className={styles.panelHeader}>Syntax Analysis Results</div>
-            <div className={styles.panelContent}>
-              {syntaxResults ? (
-                <div>
-                  <div
-                    className={`${styles.syntaxResult} ${
-                      syntaxResults.success && syntaxResults.EOF 
-                        ? styles.successMessage
-                        : styles.errorMessage
-                    }`}
-                  >
-                    {console.log(syntaxResults.EOF)}
-                    {syntaxResults.EOF
-                      ? "Syntax Analysis Successful"
-                      : "Syntax Analysis Failed"}
+        <div className={styles.panel}>
+          <div className={styles.panelHeader}>Syntax Analysis Results</div>
+          <div className={styles.panelContent}>
+            {syntaxResults ? (
+              <div>
+                <div
+                  className={`${styles.syntaxResult} ${
+                    syntaxResults.success && syntaxResults.EOF
+                      ? styles.successMessage
+                      : styles.errorMessage
+                  }`}
+                >
+                  {console.log(syntaxResults.EOF)}
+                  {syntaxResults.EOF
+                    ? "Syntax Analysis Successful"
+                    : "Syntax Analysis Failed"}
+                </div>
+                {syntaxResults.errors.length > 0 && !syntaxResults.EOF && (
+                  <div className={styles.errorList}>
+                    <h3>Errors:</h3>
+                    <ul>
+                      {syntaxResults.errors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
                   </div>
-                  {syntaxResults.errors.length > 0 && !syntaxResults.EOF && (
-                    <div className={styles.errorList}>
-                      
-                      <h3>Errors:</h3>
-                      <ul>
-                        {syntaxResults.errors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className={styles.emptyMessage}>
-                  No syntax analysis results yet...
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <div className={styles.emptyMessage}>
+                No syntax analysis results yet...
+              </div>
+            )}
           </div>
-          <h2>TAC File</h2>
-          {tacFile && tacFile.map((line, index) => (
-            <div className={styles.tacLine} key={index}>{line}</div>
-          ))}
+        </div>
+        <div className={styles.outputFiles}>
+          <div>
+            <h2>TAC File</h2>
+            {tacFile &&
+              tacFile.map((line, index) => (
+                <div className={styles.tacLine} key={index}>
+                  {line}
+                </div>
+              ))}
+          </div>
+          <div>
+            <h2>ASM File</h2>
+            {asmFile &&
+              asmFile.split("\n").map((line, index) => (
+                <div className={styles.tacLine} key={index}>
+                  {line}
+                </div>
+              ))}
+          </div>
+        </div>
         {/* <button onClick={showResults}> Show details</button> */}
       </div>
     </div>
