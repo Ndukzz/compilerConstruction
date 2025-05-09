@@ -6,7 +6,7 @@ procedure two is
     get(a);
     b := 10;
     d:= 20;
-    cc:=d+a*b;
+    cc:=d-a/b;
     put("The answer is ");
     putLn(cc);
   end x;

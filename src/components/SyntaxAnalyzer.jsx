@@ -2,8 +2,7 @@ import { decl } from "postcss";
 import HashTable from "./HashTable.js";
 // TODO:  ADD TABS INTO THE ASM FILE WHERE NECESSARY FOR READABILITY
 // the depth 1 variables are gonna reamein the same in the asm file
-// differentiate between the addops and mulops in the ASM code
-// conduct arithmetic operations in the parser :: done
+// add the mod anb other arithmetic operations to it
 
 class SyntaxAnalyzer2 {
   constructor(tokens) {
@@ -47,6 +46,7 @@ class SyntaxAnalyzer2 {
     this.Message = "";
     this.userInput = null;
     this.OutputMessages = [];
+    this.calculate = false;
   }
 
   analyze() {
@@ -125,7 +125,7 @@ class SyntaxAnalyzer2 {
 
   Match(expectedToken) {
     const token = this.getCurrentToken();
-    // console.log(token.lexeme);
+    console.log(token.lexeme);
     let string = "";
 
     if (token && token.token === expectedToken) {
@@ -263,8 +263,8 @@ class SyntaxAnalyzer2 {
 
       return false;
     }
-
     this.currentToken++;
+
 
     if (!this.Match("semicolonT")) return false;
 
@@ -312,7 +312,17 @@ class SyntaxAnalyzer2 {
       tac = `START PROC ${procName.lexeme.toLowerCase()}`; // START PROC ProcName
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       this.Emit(tac);
-      asm = `START PROC ${procName.lexeme.toLowerCase()}\n`;
+      asm = `
+        start PROC\n
+mov ax, @data\n
+mov ds, ax\n
+call ${procName.lexeme.toLowerCase()}\n
+mov ah, 4ch\n
+mov al,0\n
+int 21h\n
+start ENDP\n
+END start
+      `;
 
       this.ASM += asm;
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
@@ -728,13 +738,27 @@ class SyntaxAnalyzer2 {
 
   SeqOfStatements() {
     // SeqOfStatments -> Statement ; StatTail || return
-
+    const token = this.getCurrentToken().token;
+    if (     token == "getT" ||
+      token == "putT" ||
+      token == "putLnT") {
+      this.calculate = true;
+    }
+    if (
+      token == "idT" ||
+      token == "getT" ||
+      token == "putT" ||
+      token == "putLnT"
+    ) {
     let statement = this.Statement();
 
     this.Match("semicolonT");
 
     let statTail = this.StatTail();
     return true;
+    } else {
+      return;
+    }
   }
 
   StatTail() {
@@ -750,7 +774,7 @@ class SyntaxAnalyzer2 {
     ) {
       const statement = this.Statement();
 
-      this.getCurrentToken("semicolonT") && this.Match("semicolonT");
+     this.Match("semicolonT");
 
       const statTail = this.StatTail();
     } else {
@@ -780,11 +804,13 @@ class SyntaxAnalyzer2 {
         console.log(idt.lexeme, " ", expr);
 
         //  UPDATE THE VALUE OF THE VARIABLE ON THE LEFT OF THE ASSIGNMENT STATEMENT
-        if (this.IsNumber(expr)) {
-          this.updateStackValue(idt.lexeme, expr);
-        } else {
-          let data = this.getStackData(expr);
-          this.updateStackValue(idt.lexeme, data.value);
+        if(this.calculate) {
+          if (this.IsNumber(expr)) {
+            this.updateStackValue(idt.lexeme, expr);
+          } else {
+            let data = this.getStackData(expr);
+            this.updateStackValue(idt.lexeme, data.value);
+          }
         }
 
         this.typeList = [];
@@ -870,10 +896,13 @@ class SyntaxAnalyzer2 {
       let ptr = this.HashTable.lookup(temp);
 
       //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
-      let var1 = this.getStackData(inhVal).value;
-      let var2 = this.getStackData(term).value;
-      addOp.lexeme == "+" ? (var1 += var2) : (var1 -= var2);
-      this.updateStackValue(temp, var1);
+      if (this.calculate) {
+        
+        let var1 = this.getStackData(inhVal).value;
+        let var2 = this.getStackData(term).value;
+        addOp.lexeme == "+" ? (var1 += var2) : (var1 -= var2);
+        this.updateStackValue(temp, var1);
+      }
 
       // console.log("AHHHHHHHHHH!!!!!", temp, this.findBPPointer(temp));
 
@@ -925,12 +954,15 @@ class SyntaxAnalyzer2 {
       let ptr = this.HashTable.lookup(temp);
 
       //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
-      console.log(this.getStackData(inhVal));
-
-      let var1 = this.getStackData(inhVal).value;
-      let var2 = this.getStackData(factor).value;
-      mulOp.lexeme == "*" ? (var1 *= var2) : (var1 /= var2);
-      this.updateStackValue(temp, var1);
+      if (this.calculate) {
+        
+        console.log(this.getStackData(inhVal));
+        
+        let var1 = this.getStackData(inhVal).value;
+        let var2 = this.getStackData(factor).value;
+        mulOp.lexeme == "*" ? (var1 *= var2) : (var1 /= var2);
+        this.updateStackValue(temp, var1);
+      }
 
       // create TAC   _tx = a mulOp R
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
@@ -1265,23 +1297,41 @@ class SyntaxAnalyzer2 {
       containsBP ? (source2 = `[${source2}]`) : null;
 
       if (op == "+" || op == "-") {
-        // console.log("ADdition fork");
-        let result = `mov ax, ${source1}\n`;
-        result += `add ax, ${source2}\n`;
-        result += `mov ${dest}, ax\n`;
-        this.ASM += "\n" + result;
+        if (op == "+") {
+          // console.log("ADdition fork");
+          let result = `mov ax, ${source1}\n`;
+          result += `add ax, ${source2}\n`;
+          result += `mov ${dest}, ax\n`;
+          this.ASM += "\n" + result;
+        } else {
+          let result = `mov ax, ${source1}\n`;
+          result += `sub ax, ${source2}\n`;
+          result += `mov ${dest}, ax\n`;
+          this.ASM += "\n" + result;
+        }
       }
       if (op == "*" || op == "/") {
-        // console.log("Multiplication fork");
-        let result = `mov ax, ${source1}\n`;
-        result += `mov bx, ${source2}\n`;
-        result += `imul bx\n`;
-        result += `mov ${dest}, ax\n`;
-        this.ASM += "\n" + result;
+        if (op == "*") {
+          // console.log("Multiplication fork");
+          let result = `mov ax, ${source1}\n`;
+          result += `mov bx, ${source2}\n`;
+          result += `imul bx\n`;
+          result += `mov ${dest}, ax\n`;
+          this.ASM += "\n" + result;
+        } else {
+          let result = `mov ax, ${source1}\n`;
+          result += `cwd\n`;
+          result += `mov bx, ${source2}\n`;
+          result += `idiv bx\n`;
+          result += `mov ${dest}, ax\n`;
+          this.ASM += "\n" + result;
+        }
       }
     } else {
       // Handle simple move
-      let result = `mov ax, [${source1}]\n`;
+      let result = this.IsNumber(source1)
+        ? `mov ax, ${source1}\n`
+        : `mov ax, [${source1}]\n`;
       result += `mov [${dest}], ax\n`;
       this.ASM += "\n" + result + "\n";
     }
@@ -1294,6 +1344,9 @@ class SyntaxAnalyzer2 {
   getStackData(lexeme) {
     // Find the node in the stack that matches the lexeme
     const node = this.stack.find((item) => item.lex === lexeme);
+    if (this.IsNumber(lexeme)) {
+      return lexeme;
+    }
 
     if (!node) {
       console.log(`Lexeme "${lexeme}" not found in stack`);
@@ -1384,6 +1437,7 @@ class SyntaxAnalyzer2 {
 
       let tac = `rdi ${BP_pos}`;
       this.Emit(tac);
+      this.ASM += `call readint \nmov [${BP_pos}], bx`;
     });
 
     this.Match("RparenT");
@@ -1443,10 +1497,14 @@ class SyntaxAnalyzer2 {
       if (token.token === "putLnT") {
         tac = "wrln";
         this.Emit(tac);
+        this.ASM += `mov dx, [${BP_pos}] \ncall writeint \n call writeLn \n`;
+
         let value = this.getStackData(writeList[0][0]);
         this.messVal = value;
         window.alert(this.Message + " " + value.value);
       } else {
+        this.ASM += `mov dx, offset ${S_var} \ncall writeStr\n `;
+
         this.userInput = prompt(this.Message);
         this.OutputMessages.push(S_var + " DB " + this.Message + `,\"$\"`);
       }
