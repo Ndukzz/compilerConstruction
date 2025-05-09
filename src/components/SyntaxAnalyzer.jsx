@@ -1,6 +1,7 @@
 import { decl } from "postcss";
 import HashTable from "./HashTable.js";
-// TODO:  create this.Emit functions for START, ENDP, PUSH, START PROC
+// TODO:  ADD TABS INTO THE ASM FILE WHERE NECESSARY FOR READABILITY
+// the depth 1 variables are gonna reamein the same in the asm file
 // fix the MUL ASM
 
 class SyntaxAnalyzer2 {
@@ -178,7 +179,7 @@ class SyntaxAnalyzer2 {
     let tac = `BEGIN ${procName.lexeme}`; //BEGIN ProcName
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     this.Emit(tac);
-    let asm = `${procName.lexeme} PROC \npush bp \nmov bp, sp \nsub sp, ${declPart.localSize} \n\n`;
+    let asm = `${procName.lexeme.toLowerCase()} PROC \npush bp \nmov bp, sp \nsub sp, ${declPart.localSize} \n\n`;
     this.ASM += asm;
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     let token = this.getCurrentToken();
@@ -196,7 +197,7 @@ class SyntaxAnalyzer2 {
     tac = `ENDP ${procName.lexeme}`; // ENDP ProcName
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     this.Emit(tac);
-    asm =  `add sp, ${declPart.localSize}\npop bp \nret ${args.paramSize} \n${procName.lexeme} ENDP\n\n`;
+    asm =  `add sp, ${declPart.localSize}\npop bp \nret ${args.paramSize} \n${procName.lexeme.toLowerCase()} ENDP\n\n`;
     this.ASM += asm
     // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     // Make sure the end name matches the procedure name
@@ -258,9 +259,12 @@ class SyntaxAnalyzer2 {
       // console.log("FINAL RESULTS:", this.tables);
       this.EOF = true;
       this.tables.push(this.procs[this.depth]);
-      tac = `START PROC ${procName.lexeme}`; // START PROC ProcName
+      tac = `START PROC ${procName.lexeme.toLowerCase()}`; // START PROC ProcName
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       this.Emit(tac);
+      asm = `START PROC ${procName.lexeme.toLowerCase()}\n`
+
+      this.ASM += asm;
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
     }
     console.log(this.TAC);
@@ -1081,25 +1085,25 @@ class SyntaxAnalyzer2 {
 
       if (found) return sum;
 
-      // Reset sum if not found upward
-      sum = 0;
+    // Reset sum if not found upward
+    sum = 0;
 
-      // PHASE 2: Then search downward (outer scopes, negative sum)
-      for (let i = bpIndex - 1; i >= 0; i--) {
-        sum += this.stack[i].size; // Count all frames traversed
+    // PHASE 2: Then search downward (outer scopes, negative sum)
+    for (let i = bpIndex - 1; i >= 0; i--) {
+      sum += this.stack[i].size; // Count all frames traversed
 
-        if (this.stack[i].lex === targetLexeme) {
-          found = true;
-          break;
-        }
+      if (this.stack[i].lex === targetLexeme) {
+        found = true;
+        break;
       }
+    }
 
-      if (!found) {
-        console.log(`Target lexeme "${targetLexeme}" not found in stack`);
-        return 0;
-      }
+    if (!found) {
+      console.log(`Target lexeme "${targetLexeme}" not found in stack`);
+      return 0;
+    }
 
-      sum = `_bp+${sum}`;
+    sum = `_bp+${sum}`;
 
       return sum;
     } else {
@@ -1208,6 +1212,43 @@ class SyntaxAnalyzer2 {
   containsBP(str) {
     return str.includes("bp");
   }
+
+  //
+  // Assignment 8 methods
+
+  // IOStat() {
+  //   if(this.getCurrentToken() == "getT") {  
+  //     let inStat = this.InStat()
+  //   } else {
+  //     let outStat = this.OutStat();
+  //   }
+  // }
+
+  // InStat(){
+  //   this.Match("getT");
+  //   this.Match("LparenT")
+  //   let idList = this.IdList()
+  //   this.Match("RparenT")
+  // }
+
+  // IdList() {
+  //   let idt = this.Match("idT");
+  //   let idListTail = this.IdListTail();
+  // }
+
+  // IdListTail(){
+  //   if (this.getCurrentToken("commaT")) {
+  //     this.Match("commaT")
+  //     let idt = this.Match("idT")
+  //     let idListTail = this.IdListTail();
+  //   }
+  //   else {
+  //     return [];
+  //   }
+  // }
+
+
+  
 }
 
 export default SyntaxAnalyzer2;
