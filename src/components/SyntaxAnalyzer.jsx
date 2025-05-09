@@ -95,7 +95,7 @@ class SyntaxAnalyzer2 {
 
       this.currentToken++;
       return token;
-    } 
+    }
     if (expectedToken == "literalT") {
       while (this.getCurrentToken().token != "doubleQuotesT") {
         let token = this.getCurrentToken();
@@ -704,17 +704,21 @@ class SyntaxAnalyzer2 {
     // StatTail -> Statement ; StatTail || return
     const token = this.getCurrentToken().token;
     // console.log("INNNNNNNNNNNNN");
-    
-    if (token == "idT" || token == "getT" || token == "putT" || token == "putLnT") {
+
+    if (
+      token == "idT" ||
+      token == "getT" ||
+      token == "putT" ||
+      token == "putLnT"
+    ) {
       const statement = this.Statement();
-      
+
       this.getCurrentToken("semicolonT") && this.Match("semicolonT");
-      
+
       const statTail = this.StatTail();
     } else {
       return;
     }
-   
   }
 
   AssignStat() {
@@ -874,13 +878,12 @@ class SyntaxAnalyzer2 {
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       let dest, source1, source2, op;
       let tac = ``;
-      if (this.depth >=2 ) {
+      if (this.depth >= 2) {
         dest = this.findBPPointer(temp);
         source1 = this.findBPPointer(inhVal);
         source2 = this.findBPPointer(factor);
         op = mulOp.lexeme;
         tac = `${dest} = ${source1} ${op} ${source2}  `; // in depth 2
-
       } else {
         tac = `${temp} = ${inhVal} ${mulOp.lexeme} ${factor}  `; // in depth 1
       }
@@ -1233,7 +1236,6 @@ class SyntaxAnalyzer2 {
   IOStat() {
     //  IOStat -> InStat  || OutStat
     if (this.getCurrentToken().token == "getT") {
-
       let inStat = this.InStat();
     } else {
       let outStat = this.OutStat();
@@ -1246,25 +1248,25 @@ class SyntaxAnalyzer2 {
     this.Match("LparenT");
     let idList = this.IdList();
     console.log(idList);
-    
+
     //Generate TAC for output
-    idList.forEach(item => {
+    idList.forEach((item) => {
       let BP_pos = this.findBPPointer(item.lexeme);
       // console.log(`The position of ${item.lexeme} is ${BP_pos} `);
-      
+
       let tac = `rdi ${BP_pos}`;
-      this.Emit(tac)
-    })
+      this.Emit(tac);
+    });
 
     this.Match("RparenT");
   }
 
   IdList() {
     //  IdList -> idT IdListTail
-    let list = []
+    let list = [];
     let idt = this.Match("idT");
-    list.push(idt)
-    
+    list.push(idt);
+
     let idListTail = this.IdListTail(list);
     return idListTail;
   }
@@ -1274,8 +1276,8 @@ class SyntaxAnalyzer2 {
     if (this.getCurrentToken().token == "commaT") {
       this.Match("commaT");
       let idt = this.Match("idT");
-      list.push(idt)
-      
+      list.push(idt);
+
       let idListTail = this.IdListTail(list);
       return idListTail;
     } else {
@@ -1285,22 +1287,35 @@ class SyntaxAnalyzer2 {
 
   OutStat() {
     // Out_Stat -> put(Write_List) | putln(Write_List)
-    
+
     const token = this.getCurrentToken();
+    let BP_pos;
 
     if (token.token === "putT" || token.token === "putLnT") {
       this.Match(token.token);
       this.Match("LparenT");
       const writeList = this.WriteList();
+
+      //Generate TAC for output
+      if (token.token === "putLnT") {
+        writeList.forEach((item) => {
+          BP_pos = this.findBPPointer(item[0]);
+          console.log(BP_pos);
+        });
+      }
+
       this.Match("RparenT");
 
       // Generate TAC for output
-      let S_var =   `_S${this.SvarCount}`
+      let S_var = `_S${this.SvarCount}`;
       this.SvarCount++;
-  
-      let tac = token.token === "putT" ? `wrs ${S_var}` : "";
-      // tac += writeList.join(", ");
+
+      let tac = token.token === "putT" ? `wrs ${S_var}` : "wri" + BP_pos + "\n";
       this.Emit(tac);
+      if (token.token === "putLnT") {
+        tac = "wrln";
+        this.Emit(tac);
+      }
 
       return true;
     }
@@ -1309,31 +1324,35 @@ class SyntaxAnalyzer2 {
 
   WriteList() {
     // Write_List -> Write_Token Write_List_Tail
+    let list = [];
     const writeToken = this.WriteToken();
     if (!writeToken) return [];
 
-    const writeListTail = this.WriteListTail();
-    return [writeToken, ...writeListTail];
+    list.push(writeToken);
+
+    const writeListTail = this.WriteListTail(list);
+    return [writeListTail];
   }
 
-  WriteListTail() {
+  WriteListTail(list) {
     // Write_List_Tail -> , Write_Token Write_List_Tail | ε
 
     if (this.getCurrentToken().token === "commaT") {
       this.Match("commaT");
       const writeToken = this.WriteToken();
       if (!writeToken) return [];
+      list.push(writeToken);
 
-      const writeListTail = this.WriteListTail();
-      return [writeToken, ...writeListTail];
+      const writeListTail = this.WriteListTail(list);
+      return [writeListTail];
     }
-    return [];
+    return list;
   }
 
   WriteToken() {
     // Write_Token -> idt | numt | literal
     const token = this.getCurrentToken();
-    
+
     if (token.token === "idT") {
       const idt = this.Match("idT");
       return idt.lexeme;
@@ -1343,24 +1362,24 @@ class SyntaxAnalyzer2 {
     } else if (token.token === "doubleQuotesT") {
       return this.extractStringLiteral();
     }
-    
+
     return null;
   }
-  
+
   extractStringLiteral() {
     // Handles string literals enclosed in double quotes
     let stringContent = "";
-    
+
     // Match opening double quote
     this.Match("doubleQuotesT");
-    
+
     // Get the content between quotes
     let string = this.Match("literalT");
 
     // Match closing double quote
     this.Match("doubleQuotesT");
 
-    // Return the string with quotes    
+    // Return the string with quotes
     return `"${stringContent}"`;
   }
 }
