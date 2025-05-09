@@ -201,16 +201,15 @@ class SyntaxAnalyzer2 {
 
     //AFTER THE DECLARATION OF PARAMS, INSERT THE BP
 
-    //INSERTING BP INTO THE STACK
-    if (this.depth == 2) {
-      this.pushStack("BP", 0);
-    }
+  
 
     console.log(this.stack);
     progDetails.values.params = args.list;
     progDetails.sizeOfParams = args.paramSize;
 
     if (!this.Match("isT")) return false;
+    this.pushStack("BP", 0);
+
 
     let declPart = this.DeclarativePart(); // should contain the locals and their sizes..
 
@@ -264,7 +263,6 @@ class SyntaxAnalyzer2 {
       return false;
     }
     this.currentToken++;
-
 
     if (!this.Match("semicolonT")) return false;
 
@@ -739,9 +737,7 @@ END start
   SeqOfStatements() {
     // SeqOfStatments -> Statement ; StatTail || return
     const token = this.getCurrentToken().token;
-    if (     token == "getT" ||
-      token == "putT" ||
-      token == "putLnT") {
+    if (token == "getT" || token == "putT" || token == "putLnT") {
       this.calculate = true;
     }
     if (
@@ -750,12 +746,12 @@ END start
       token == "putT" ||
       token == "putLnT"
     ) {
-    let statement = this.Statement();
+      let statement = this.Statement();
 
-    this.Match("semicolonT");
+      this.Match("semicolonT");
 
-    let statTail = this.StatTail();
-    return true;
+      let statTail = this.StatTail();
+      return true;
     } else {
       return;
     }
@@ -774,7 +770,7 @@ END start
     ) {
       const statement = this.Statement();
 
-     this.Match("semicolonT");
+      this.Match("semicolonT");
 
       const statTail = this.StatTail();
     } else {
@@ -783,6 +779,7 @@ END start
   }
 
   AssignStat() {
+    console.log(this.stack)
     // AssignStat -> idt := Expr || ProcCall
     let idt = this.getCurrentToken();
     if (idt.token == "idT") {
@@ -804,7 +801,7 @@ END start
         console.log(idt.lexeme, " ", expr);
 
         //  UPDATE THE VALUE OF THE VARIABLE ON THE LEFT OF THE ASSIGNMENT STATEMENT
-        if(this.calculate) {
+        if (this.calculate) {
           if (this.IsNumber(expr)) {
             this.updateStackValue(idt.lexeme, expr);
           } else {
@@ -823,6 +820,7 @@ END start
         //dest = var1
         // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
         this.Emit(tac, dest, source);
+
         // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       } else if (token == "LparenT") {
         this.ProcCall(idt.lexeme);
@@ -897,7 +895,6 @@ END start
 
       //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
       if (this.calculate) {
-        
         let var1 = this.getStackData(inhVal).value;
         let var2 = this.getStackData(term).value;
         addOp.lexeme == "+" ? (var1 += var2) : (var1 -= var2);
@@ -922,6 +919,7 @@ END start
       }
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
       this.Emit(tac, dest, source1, op, source2);
+
       // --------8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8-8 POINT OF INTEREST
 
       // console.log(tac);
@@ -955,9 +953,8 @@ END start
 
       //   UPDATE THE VALUE OF THE TEMP VALUES IN THE STACK
       if (this.calculate) {
-        
         console.log(this.getStackData(inhVal));
-        
+
         let var1 = this.getStackData(inhVal).value;
         let var2 = this.getStackData(factor).value;
         mulOp.lexeme == "*" ? (var1 *= var2) : (var1 /= var2);
@@ -1270,19 +1267,13 @@ END start
     this.TAC.push(message);
     // source2 = this.removeUnderScore(source2);
     if (dest) {
-      // console.log(message);
-
-      // console.log("destination: ", dest);
-      // console.log("source1: " + source1);
-      // console.log("operation: " + op);
-      // console.log("source2: " + source2);
-      // console.log("---------");
-
       dest = this.removeUnderScore(dest);
       source1 = this.removeUnderScore(source1);
       source2 && (source2 = this.removeUnderScore(source2));
+      console.log(dest, source1);
+      
 
-      this.Mov(dest, source1, op, source2);
+      this.Mov(dest, source1, op= null, source2=null);
     }
   }
 
@@ -1297,43 +1288,37 @@ END start
       containsBP ? (source2 = `[${source2}]`) : null;
 
       if (op == "+" || op == "-") {
-        if (op == "+") {
-          // console.log("ADdition fork");
-          let result = `mov ax, ${source1}\n`;
-          result += `add ax, ${source2}\n`;
-          result += `mov ${dest}, ax\n`;
-          this.ASM += "\n" + result;
-        } else {
-          let result = `mov ax, ${source1}\n`;
-          result += `sub ax, ${source2}\n`;
-          result += `mov ${dest}, ax\n`;
-          this.ASM += "\n" + result;
-        }
+        let result = `mov ax, ${source1}\n`;
+        result += `add ax, ${source2}\n`;
+        result += `mov ${dest}, ax\n`;
+        this.ASM += result;
       }
       if (op == "*" || op == "/") {
-        if (op == "*") {
-          // console.log("Multiplication fork");
-          let result = `mov ax, ${source1}\n`;
-          result += `mov bx, ${source2}\n`;
-          result += `imul bx\n`;
-          result += `mov ${dest}, ax\n`;
-          this.ASM += "\n" + result;
-        } else {
-          let result = `mov ax, ${source1}\n`;
-          result += `cwd\n`;
-          result += `mov bx, ${source2}\n`;
-          result += `idiv bx\n`;
-          result += `mov ${dest}, ax\n`;
-          this.ASM += "\n" + result;
-        }
+        let result = `mov ax, ${source1}\n`;
+        result += `mov bx, ${source2}\n`;
+        result += `imul bx\n`;
+        result += `mov ${dest}, ax\n`;
+        this.ASM += result;
       }
     } else {
-      // Handle simple move
-      let result = this.IsNumber(source1)
-        ? `mov ax, ${source1}\n`
-        : `mov ax, [${source1}]\n`;
-      result += `mov [${dest}], ax\n`;
-      this.ASM += "\n" + result + "\n";
+      // Handle simple assignment
+      let containsBP = this.containsBP(dest);
+      let containsBPSource = this.containsBP(source1);
+
+      let result = "";
+      if (containsBPSource) {
+        result += `mov ax, [${source1}]\n`;
+      } else {
+        result += `mov ax, ${source1}\n`;
+      }
+
+      if (containsBP) {
+        result += `mov [${dest}], ax\n`;
+      } else {
+        result += `mov ${dest}, ax\n`;
+      }
+
+      this.ASM += result;
     }
   }
 

@@ -4,5 +4,5 @@ procedure test1 is
 begin
   a := 10.0;
   b := 20.0;
-  c := a + b;
+  c := a * b;
 end test1;
