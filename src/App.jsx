@@ -75,8 +75,8 @@ function App() {
         {/* Lexical Analysis Results should be replaced with a component that properly displays the data*/}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>Lexical Analysis Results</div>
-          <DisplayVars vars={variables} />
-          <DisplayProcs procs={procedures} />
+          {/* <DisplayVars vars={variables} />
+          <DisplayProcs procs={procedures} /> */}
           
 
         </div>

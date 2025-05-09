@@ -19,6 +19,7 @@ export const RESWORDSANDSYM = {
     CHAR: "charT",
     GET: "getT",
     PUT: "putT",
+    PUTLN: "putLnT",
     END: "endT",
     "--": "openCommentT",
     ":=": "assignOp",

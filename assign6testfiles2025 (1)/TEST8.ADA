@@ -3,7 +3,7 @@ procedure two is
   a, b, cc, d: integer;
   begin 
     put("Enter a number: ");
-    get(a);
+    get(a, b);
     b := 10;
     d:= 20;
     cc:=d+a*b;
